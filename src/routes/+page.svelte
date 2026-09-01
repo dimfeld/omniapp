@@ -1,6 +1,7 @@
 <script lang="ts">
   import { onMount } from "svelte";
   import { parseGcodeFilament, type FilamentUse } from "$lib/filament/gcode";
+  import { inferTrackingDetails, type Carrier as TrackingCarrier } from "$lib/packages/tracking";
 
   type Tool = "json" | "base64" | "time" | "packages" | "filament";
   type IconName =
@@ -15,7 +16,7 @@
     | "upload"
     | "close";
 
-  type Carrier = "usps" | "ups" | "fedex" | "dhl" | "ontrac";
+  type Carrier = TrackingCarrier;
 
   type Package = {
     id: string;
@@ -327,6 +328,10 @@
       return;
     }
 
+    const inferredTracking = customUrl
+      ? inferTrackingDetails(url)
+      : { carrier, trackingNumber: number };
+
     packageSubmitting = true;
     try {
       const response = await fetch("/api/packages", {
@@ -334,8 +339,8 @@
         headers: { "content-type": "application/json" },
         body: JSON.stringify({
           name,
-          carrier: customUrl ? "custom" : carrier,
-          trackingNumber: customUrl ? "" : number,
+          carrier: inferredTracking.carrier,
+          trackingNumber: inferredTracking.trackingNumber,
           trackingUrl: url,
           expectedDeliveryDate: expectedDeliveryDate || null,
         }),
@@ -885,7 +890,7 @@
                         {#if updatingPackageId === item.id}<em>Saving…</em>{/if}
                       </label>
                       <div class="package-actions">
-                        <a href={item.trackingUrl} target="_blank" rel="noreferrer">
+                        <a href={item.trackingUrl} target="_blank" rel="noopener">
                           Track package<svg viewBox="0 0 24 24"
                             ><path d={iconPath("external")} /></svg
                           >
