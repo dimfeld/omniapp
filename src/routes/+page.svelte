@@ -77,7 +77,7 @@
   let updatingPackageId = $state("");
 
   const active = $derived(tools.find((tool) => tool.id === activeTool) ?? tools[0]);
-  const timeResult = $derived(parseTimeInput(timeInput));
+  const timeResult = $derived(parseTimeInput(timeInput, now));
 
   onMount(() => {
     void loadPackages();
@@ -140,15 +140,16 @@
     }
   }
 
-  function parseTimeInput(value: string) {
+  function parseTimeInput(value: string, currentDate: Date) {
     const trimmed = value.trim();
-    if (!trimmed) return { valid: false as const, error: "Enter a timestamp or date." };
-
-    const numeric = Number(trimmed);
     let date: Date;
     let unit = "date text";
 
-    if (Number.isFinite(numeric)) {
+    if (!trimmed) {
+      date = currentDate;
+      unit = "current time";
+    } else if (Number.isFinite(Number(trimmed))) {
+      const numeric = Number(trimmed);
       const asSeconds = new Date(numeric * 1000);
       const asMilliseconds = new Date(numeric);
       const secondsYear = asSeconds.getUTCFullYear();
