@@ -1,13 +1,57 @@
 <script lang="ts">
   import { onMount } from "svelte";
 
-  type Tool = "json" | "base64" | "time";
-  type IconName = Tool | "copy" | "check" | "trash" | "arrow" | "sparkles" | "clock";
+  type Tool = "json" | "base64" | "time" | "packages";
+  type IconName = Tool | "copy" | "check" | "trash" | "arrow" | "sparkles" | "clock" | "external";
+
+  type Carrier = "usps" | "ups" | "fedex" | "dhl" | "ontrac";
+
+  type Package = {
+    id: string;
+    name: string;
+    carrier: Carrier | "custom";
+    trackingNumber: string;
+    trackingUrl: string;
+    delivered: boolean;
+    addedAt: number;
+  };
+
+  const carriers: { id: Carrier; label: string; buildUrl: (number: string) => string }[] = [
+    {
+      id: "usps",
+      label: "USPS",
+      buildUrl: (number) =>
+        `https://tools.usps.com/go/TrackConfirmAction?tLabels=${encodeURIComponent(number)}`,
+    },
+    {
+      id: "ups",
+      label: "UPS",
+      buildUrl: (number) => `https://www.ups.com/track?tracknum=${encodeURIComponent(number)}`,
+    },
+    {
+      id: "fedex",
+      label: "FedEx",
+      buildUrl: (number) =>
+        `https://www.fedex.com/fedextrack/?trknbr=${encodeURIComponent(number)}`,
+    },
+    {
+      id: "dhl",
+      label: "DHL",
+      buildUrl: (number) =>
+        `https://www.dhl.com/global-en/home/tracking.html?tracking-id=${encodeURIComponent(number)}`,
+    },
+    {
+      id: "ontrac",
+      label: "OnTrac",
+      buildUrl: (number) => `https://www.ontrac.com/tracking/?number=${encodeURIComponent(number)}`,
+    },
+  ];
 
   const tools: { id: Tool; label: string; description: string }[] = [
     { id: "json", label: "JSON", description: "Prettify or minify" },
     { id: "base64", label: "Base64", description: "Encode or decode" },
     { id: "time", label: "Date & time", description: "Convert timestamps" },
+    { id: "packages", label: "Packages", description: "Track your deliveries" },
   ];
 
   let activeTool = $state<Tool>("json");
@@ -20,12 +64,21 @@
   let timeInput = $state("");
   let copied = $state("");
   let now = $state(new Date());
+  let packages = $state<Package[]>([]);
+  let packageName = $state("");
+  let trackingUrl = $state("");
+  let carrier = $state<Carrier>("usps");
+  let trackingNumber = $state("");
+  let packageError = $state("");
+  let packagesLoading = $state(true);
+  let packageSubmitting = $state(false);
 
   const active = $derived(tools.find((tool) => tool.id === activeTool) ?? tools[0]);
   const timeResult = $derived(parseTimeInput(timeInput));
 
   onMount(() => {
     timeInput = String(Math.floor(Date.now() / 1000));
+    void loadPackages();
     const timer = window.setInterval(() => (now = new Date()), 1000);
     return () => window.clearInterval(timer);
   });
@@ -42,6 +95,8 @@
       sparkles:
         "m12 3 1.2 3.8L17 8l-3.8 1.2L12 13l-1.2-3.8L7 8l3.8-1.2L12 3ZM5 14l.8 2.2L8 17l-2.2.8L5 20l-.8-2.2L2 17l2.2-.8L5 14Zm13-1 .8 2.2 2.2.8-2.2.8L18 19l-.8-2.2L15 16l2.2-.8L18 13Z",
       clock: "M12 7v5l3 2M21 12a9 9 0 1 1-9-9 9 9 0 0 1 9 9Z",
+      packages: "M21 8.5 12 13 3 8.5M12 13v9M4.5 7.75 12 4l7.5 3.75v8.5L12 20l-7.5-3.75v-8.5Z",
+      external: "M14 4h6v6m0-6-9 9M18 13v7H4V6h7",
     };
     return paths[name];
   }
@@ -152,6 +207,107 @@
   function useCurrentTime() {
     timeInput = String(Math.floor(Date.now() / 1000));
   }
+
+  async function loadPackages() {
+    packagesLoading = true;
+    try {
+      const response = await fetch("/api/packages");
+      if (!response.ok) throw new Error("Could not load packages.");
+      packages = (await response.json()) as Package[];
+    } catch {
+      packageError = "Could not load packages from the local database.";
+    } finally {
+      packagesLoading = false;
+    }
+  }
+
+  function normalizedUrl(value: string) {
+    const withProtocol = /^https?:\/\//i.test(value) ? value : `https://${value}`;
+    const parsed = new URL(withProtocol);
+    if (!["http:", "https:"].includes(parsed.protocol)) throw new Error("Unsupported URL");
+    return parsed.toString();
+  }
+
+  async function addPackage(event: SubmitEvent) {
+    event.preventDefault();
+    packageError = "";
+
+    const name = packageName.trim();
+    const number = trackingNumber.trim();
+    const customUrl = trackingUrl.trim();
+    if (!name) {
+      packageError = "Enter a package name.";
+      return;
+    }
+    if (!customUrl && !number) {
+      packageError = "Enter a tracking URL or a carrier tracking number.";
+      return;
+    }
+
+    let url: string;
+    try {
+      url = customUrl
+        ? normalizedUrl(customUrl)
+        : carriers.find((option) => option.id === carrier)!.buildUrl(number);
+    } catch {
+      packageError = "Enter a valid tracking URL.";
+      return;
+    }
+
+    packageSubmitting = true;
+    try {
+      const response = await fetch("/api/packages", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          name,
+          carrier: customUrl ? "custom" : carrier,
+          trackingNumber: customUrl ? "" : number,
+          trackingUrl: url,
+        }),
+      });
+      if (!response.ok) throw new Error("Could not save package.");
+
+      const nextPackage = (await response.json()) as Package;
+      packages = [nextPackage, ...packages];
+      packageName = "";
+      trackingUrl = "";
+      trackingNumber = "";
+    } catch {
+      packageError = "Could not save the package. Try again.";
+    } finally {
+      packageSubmitting = false;
+    }
+  }
+
+  async function markDelivered(id: string) {
+    packageError = "";
+    try {
+      const response = await fetch(`/api/packages/${encodeURIComponent(id)}`, { method: "PATCH" });
+      if (!response.ok) throw new Error("Could not update package.");
+      packages = packages
+        .map((item) => (item.id === id ? { ...item, delivered: true } : item))
+        .sort((a, b) => Number(a.delivered) - Number(b.delivered) || b.addedAt - a.addedAt);
+    } catch {
+      packageError = "Could not mark the package as delivered.";
+    }
+  }
+
+  async function removePackage(id: string) {
+    packageError = "";
+    try {
+      const response = await fetch(`/api/packages/${encodeURIComponent(id)}`, { method: "DELETE" });
+      if (!response.ok) throw new Error("Could not remove package.");
+      packages = packages.filter((item) => item.id !== id);
+    } catch {
+      packageError = "Could not remove the package.";
+    }
+  }
+
+  function carrierLabel(item: Package) {
+    if (item.carrier === "custom") return "Tracking link";
+    return carriers.find((option) => option.id === item.carrier)?.label ?? item.carrier;
+  }
 </script>
 
 <svelte:head>
@@ -175,7 +331,7 @@
 
   <div class="workspace">
     <aside class="sidebar">
-      <div class="sidebar-heading"><span>TOOLS</span><span>03</span></div>
+      <div class="sidebar-heading"><span>TOOLS</span><span>04</span></div>
       <nav class="tool-nav" aria-label="Tools">
         {#each tools as tool}
           <button class:active={activeTool === tool.id} onclick={() => (activeTool = tool.id)}>
@@ -191,7 +347,7 @@
       </nav>
       <div class="sidebar-note">
         <svg viewBox="0 0 24 24"><path d={iconPath("sparkles")} /></svg>
-        <div><strong>More soon</strong><span>Filament and package tracking are next.</span></div>
+        <div><strong>More soon</strong><span>Filament tools are next.</span></div>
       </div>
     </aside>
 
@@ -309,7 +465,7 @@
             </div>
           </div>
         </section>
-      {:else}
+      {:else if activeTool === "time"}
         <section class="tool-panel time-tool">
           <div class="time-input-wrap">
             <label for="time-input">TIMESTAMP OR DATE</label>
@@ -368,6 +524,132 @@
           {:else}<div class="error-message standalone">
               <strong>No date to show</strong><span>{timeResult.error}</span>
             </div>{/if}
+        </section>
+      {:else}
+        <section class="packages-layout">
+          <form class="tool-panel package-form" onsubmit={addPackage}>
+            <div class="package-form-heading">
+              <div>
+                <span>ADD A DELIVERY</span>
+                <strong>What is on the way?</strong>
+              </div>
+              <svg viewBox="0 0 24 24"><path d={iconPath("packages")} /></svg>
+            </div>
+
+            <label class="package-field">
+              <span>PACKAGE NAME</span>
+              <input bind:value={packageName} placeholder="Coffee beans" autocomplete="off" />
+            </label>
+
+            <label class="package-field">
+              <span>TRACKING URL</span>
+              <input
+                bind:value={trackingUrl}
+                type="text"
+                inputmode="url"
+                placeholder="https://…"
+                autocomplete="url"
+              />
+            </label>
+
+            <div class="form-divider"><span>OR USE A CARRIER</span></div>
+
+            <div class="carrier-row">
+              <label class="package-field carrier-field">
+                <span>CARRIER</span>
+                <select bind:value={carrier}>
+                  {#each carriers as option}
+                    <option value={option.id}>{option.label}</option>
+                  {/each}
+                </select>
+              </label>
+              <label class="package-field number-field">
+                <span>TRACKING NUMBER</span>
+                <input bind:value={trackingNumber} placeholder="Enter number" autocomplete="off" />
+              </label>
+            </div>
+
+            {#if packageError}
+              <p class="package-error" role="alert">{packageError}</p>
+            {/if}
+
+            <button class="add-package-button" type="submit" disabled={packageSubmitting}>
+              <span>{packageSubmitting ? "Adding…" : "Add package"}</span><svg viewBox="0 0 24 24"
+                ><path d={iconPath("arrow")} /></svg
+              >
+            </button>
+            <p class="storage-note">
+              <span class="status-dot"></span>Saved in your local Omni database
+            </p>
+          </form>
+
+          <div class="package-list-wrap">
+            <div class="package-list-heading">
+              <div>
+                <span>YOUR PACKAGES</span>
+                <strong>{packages.filter((item) => !item.delivered).length} on the way</strong>
+              </div>
+              <span>{packages.length} total</span>
+            </div>
+
+            {#if packagesLoading}
+              <div class="package-empty">
+                <span><svg viewBox="0 0 24 24"><path d={iconPath("clock")} /></svg></span>
+                <strong>Loading packages…</strong>
+              </div>
+            {:else if packages.length}
+              <div class="package-list">
+                {#each packages as item (item.id)}
+                  <article class:delivered={item.delivered} class="package-card">
+                    <div class="package-card-icon">
+                      <svg viewBox="0 0 24 24"
+                        ><path d={iconPath(item.delivered ? "check" : "packages")} /></svg
+                      >
+                    </div>
+                    <div class="package-card-copy">
+                      <div class="package-name-row">
+                        <strong>{item.name}</strong>
+                        <span class:complete={item.delivered}
+                          >{item.delivered ? "Delivered" : "In transit"}</span
+                        >
+                      </div>
+                      <p>
+                        {carrierLabel(item)}
+                        {#if item.trackingNumber}<span>·</span><code>{item.trackingNumber}</code
+                          >{/if}
+                      </p>
+                      <div class="package-actions">
+                        <a href={item.trackingUrl} target="_blank" rel="noreferrer">
+                          Track package<svg viewBox="0 0 24 24"
+                            ><path d={iconPath("external")} /></svg
+                          >
+                        </a>
+                        {#if !item.delivered}
+                          <button onclick={() => markDelivered(item.id)}>
+                            <svg viewBox="0 0 24 24"><path d={iconPath("check")} /></svg>Mark
+                            delivered
+                          </button>
+                        {/if}
+                        <button
+                          class="remove-package"
+                          onclick={() => removePackage(item.id)}
+                          aria-label={`Remove ${item.name}`}
+                        >
+                          <svg viewBox="0 0 24 24"><path d={iconPath("trash")} /></svg>
+                        </button>
+                      </div>
+                    </div>
+                  </article>
+                {/each}
+              </div>
+            {:else}
+              <div class="package-empty">
+                <span><svg viewBox="0 0 24 24"><path d={iconPath("packages")} /></svg></span>
+                <strong>No packages yet</strong>
+                <p>Add a tracking link or carrier number to keep every delivery in one place.</p>
+              </div>
+            {/if}
+          </div>
         </section>
       {/if}
 

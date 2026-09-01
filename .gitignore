@@ -21,6 +21,9 @@ Thumbs.db
 proofshot-artifacts/
 !.env.test
 
+# Local application data
+/data/
+
 # Vite
 vite.config.js.timestamp-*
 vite.config.ts.timestamp-*

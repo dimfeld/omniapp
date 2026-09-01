@@ -1,4 +1,4 @@
-# sv
+# Omni
 
 Everything you need to build a Svelte project, powered by [`sv`](https://github.com/sveltejs/cli).
 
@@ -40,3 +40,14 @@ npm run build
 You can preview the production build with `npm run preview`.
 
 > To deploy your app, you may need to install an [adapter](https://svelte.dev/docs/kit/adapters) for your target environment.
+
+## Local database
+
+Omni uses `bun:sqlite`. The default database file is `data/omni.sqlite`. Set
+`OMNI_DATABASE_PATH` to use a different file.
+
+The server runs pending migrations when it opens the database. To add a migration, add the next
+version to the `migrations` array in `src/lib/server/database.ts`. Each migration runs in one
+transaction. The `schema_migrations` table records each applied version.
+
+Run the production server with Bun because the package tracker uses `bun:sqlite`.
