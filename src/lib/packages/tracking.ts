@@ -29,6 +29,12 @@ function carrierForHost(hostname: string): Carrier | undefined {
     ?.carrier;
 }
 
+function trackingNumberFromPath(url: URL, carrier: Carrier | undefined): string {
+  if (carrier !== "usps") return "";
+
+  return url.pathname.match(/^\/tracking\/(\d{22})\/?$/)?.[1] ?? "";
+}
+
 export function inferTrackingDetails(value: string): InferredTracking {
   let url: URL;
   try {
@@ -43,7 +49,7 @@ export function inferTrackingDetails(value: string): InferredTracking {
       .find(([name, parameterValue]) => {
         return trackingParameterNames.includes(name.toLowerCase()) && parameterValue.trim();
       })?.[1]
-      .trim() ?? "";
+      .trim() ?? trackingNumberFromPath(url, carrier);
 
   return { carrier: carrier ?? "custom", trackingNumber };
 }

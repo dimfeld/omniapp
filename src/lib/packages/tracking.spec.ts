@@ -4,6 +4,10 @@ import { inferTrackingDetails } from "./tracking";
 describe("inferTrackingDetails", () => {
   it.each([
     [
+      "https://tools.usps.com/tracking/9400111206219990845810",
+      { carrier: "usps", trackingNumber: "9400111206219990845810" },
+    ],
+    [
       "https://tools.usps.com/go/TrackConfirmAction?tLabels=9400111899223856928491",
       { carrier: "usps", trackingNumber: "9400111899223856928491" },
     ],
