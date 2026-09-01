@@ -16,6 +16,9 @@ Thumbs.db
 .env
 .env.*
 !.env.example
+
+# Local UI verification output
+proofshot-artifacts/
 !.env.test
 
 # Vite
