@@ -12,6 +12,7 @@
     carrier: Carrier | "custom";
     trackingNumber: string;
     trackingUrl: string;
+    expectedDeliveryDate: string | null;
     delivered: boolean;
     addedAt: number;
   };
@@ -69,9 +70,11 @@
   let trackingUrl = $state("");
   let carrier = $state<Carrier>("usps");
   let trackingNumber = $state("");
+  let expectedDeliveryDate = $state("");
   let packageError = $state("");
   let packagesLoading = $state(true);
   let packageSubmitting = $state(false);
+  let updatingPackageId = $state("");
 
   const active = $derived(tools.find((tool) => tool.id === activeTool) ?? tools[0]);
   const timeResult = $derived(parseTimeInput(timeInput));
@@ -213,7 +216,7 @@
     try {
       const response = await fetch("/api/packages");
       if (!response.ok) throw new Error("Could not load packages.");
-      packages = (await response.json()) as Package[];
+      packages = sortPackages((await response.json()) as Package[]);
     } catch {
       packageError = "Could not load packages from the local database.";
     } finally {
@@ -226,6 +229,15 @@
     const parsed = new URL(withProtocol);
     if (!["http:", "https:"].includes(parsed.protocol)) throw new Error("Unsupported URL");
     return parsed.toString();
+  }
+
+  function sortPackages(items: Package[]) {
+    return [...items].sort((a, b) => {
+      if (!a.expectedDeliveryDate && !b.expectedDeliveryDate) return b.addedAt - a.addedAt;
+      if (!a.expectedDeliveryDate) return -1;
+      if (!b.expectedDeliveryDate) return 1;
+      return a.expectedDeliveryDate.localeCompare(b.expectedDeliveryDate) || b.addedAt - a.addedAt;
+    });
   }
 
   async function addPackage(event: SubmitEvent) {
@@ -264,15 +276,17 @@
           carrier: customUrl ? "custom" : carrier,
           trackingNumber: customUrl ? "" : number,
           trackingUrl: url,
+          expectedDeliveryDate: expectedDeliveryDate || null,
         }),
       });
       if (!response.ok) throw new Error("Could not save package.");
 
       const nextPackage = (await response.json()) as Package;
-      packages = [nextPackage, ...packages];
+      packages = sortPackages([nextPackage, ...packages]);
       packageName = "";
       trackingUrl = "";
       trackingNumber = "";
+      expectedDeliveryDate = "";
     } catch {
       packageError = "Could not save the package. Try again.";
     } finally {
@@ -283,13 +297,40 @@
   async function markDelivered(id: string) {
     packageError = "";
     try {
-      const response = await fetch(`/api/packages/${encodeURIComponent(id)}`, { method: "PATCH" });
+      const response = await fetch(`/api/packages/${encodeURIComponent(id)}`, {
+        method: "PATCH",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ delivered: true }),
+      });
       if (!response.ok) throw new Error("Could not update package.");
-      packages = packages
-        .map((item) => (item.id === id ? { ...item, delivered: true } : item))
-        .sort((a, b) => Number(a.delivered) - Number(b.delivered) || b.addedAt - a.addedAt);
+      packages = sortPackages(
+        packages.map((item) => (item.id === id ? { ...item, delivered: true } : item))
+      );
     } catch {
       packageError = "Could not mark the package as delivered.";
+    }
+  }
+
+  async function updateExpectedDeliveryDate(id: string, value: string) {
+    packageError = "";
+    updatingPackageId = id;
+    try {
+      const response = await fetch(`/api/packages/${encodeURIComponent(id)}`, {
+        method: "PATCH",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ expectedDeliveryDate: value || null }),
+      });
+      if (!response.ok) throw new Error("Could not update expected delivery date.");
+      packages = sortPackages(
+        packages.map((item) =>
+          item.id === id ? { ...item, expectedDeliveryDate: value || null } : item
+        )
+      );
+    } catch {
+      packageError = "Could not update the expected delivery date.";
+      packages = [...packages];
+    } finally {
+      updatingPackageId = "";
     }
   }
 
@@ -542,6 +583,11 @@
             </label>
 
             <label class="package-field">
+              <span>EXPECTED DELIVERY <em>OPTIONAL</em></span>
+              <input bind:value={expectedDeliveryDate} type="date" />
+            </label>
+
+            <label class="package-field">
               <span>TRACKING URL</span>
               <input
                 bind:value={trackingUrl}
@@ -618,6 +664,18 @@
                         {#if item.trackingNumber}<span>·</span><code>{item.trackingNumber}</code
                           >{/if}
                       </p>
+                      <label class="expected-date-field">
+                        <span>Expected delivery</span>
+                        <input
+                          type="date"
+                          value={item.expectedDeliveryDate ?? ""}
+                          aria-label={`Expected delivery date for ${item.name}`}
+                          disabled={updatingPackageId === item.id}
+                          onchange={(event) =>
+                            updateExpectedDeliveryDate(item.id, event.currentTarget.value)}
+                        />
+                        {#if updatingPackageId === item.id}<em>Saving…</em>{/if}
+                      </label>
                       <div class="package-actions">
                         <a href={item.trackingUrl} target="_blank" rel="noreferrer">
                           Track package<svg viewBox="0 0 24 24"

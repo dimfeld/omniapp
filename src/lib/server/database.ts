@@ -25,6 +25,11 @@ const migrations: Migration[] = [
       "CREATE INDEX packages_delivery_order ON packages(delivered, added_at DESC)",
     ],
   },
+  {
+    version: 2,
+    name: "add_expected_delivery_date",
+    statements: ["ALTER TABLE packages ADD COLUMN expected_delivery_date TEXT"],
+  },
 ];
 
 export function migrateDatabase(database: Database, availableMigrations = migrations) {

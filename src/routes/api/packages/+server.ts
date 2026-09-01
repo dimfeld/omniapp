@@ -3,6 +3,7 @@ import { json } from "@sveltejs/kit";
 import type { RequestHandler } from "./$types";
 
 const allowedCarriers = new Set(["usps", "ups", "fedex", "dhl", "ontrac", "custom"]);
+const datePattern = /^\d{4}-\d{2}-\d{2}$/;
 
 export const GET: RequestHandler = () => json(listPackages());
 
@@ -11,9 +12,20 @@ export const POST: RequestHandler = async ({ request }) => {
   const name = body.name?.trim();
   const trackingUrl = body.trackingUrl?.trim();
   const carrier = body.carrier?.trim();
+  if (
+    body.expectedDeliveryDate !== undefined &&
+    body.expectedDeliveryDate !== null &&
+    typeof body.expectedDeliveryDate !== "string"
+  ) {
+    return json({ message: "Invalid expected delivery date." }, { status: 400 });
+  }
+  const expectedDeliveryDate = body.expectedDeliveryDate?.trim() || null;
 
   if (!name || !trackingUrl || !carrier || !allowedCarriers.has(carrier)) {
     return json({ message: "Invalid package details." }, { status: 400 });
+  }
+  if (expectedDeliveryDate && !datePattern.test(expectedDeliveryDate)) {
+    return json({ message: "Invalid expected delivery date." }, { status: 400 });
   }
 
   let parsedUrl: URL;
@@ -32,6 +44,7 @@ export const POST: RequestHandler = async ({ request }) => {
     carrier,
     trackingNumber: body.trackingNumber?.trim() ?? "",
     trackingUrl: parsedUrl.toString(),
+    expectedDeliveryDate,
     delivered: false,
     addedAt: Date.now(),
   };

@@ -17,9 +17,15 @@ describe("database migrations", () => {
         "SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'packages'"
       )
       .get();
+    const expectedDateColumn = database
+      .query<{ name: string }, [string]>(
+        "SELECT name FROM pragma_table_info('packages') WHERE name = ?"
+      )
+      .get("expected_delivery_date");
 
-    expect(migrationCount?.count).toBe(1);
+    expect(migrationCount?.count).toBe(2);
     expect(packageTable?.name).toBe("packages");
+    expect(expectedDateColumn?.name).toBe("expected_delivery_date");
     database.close();
   });
 

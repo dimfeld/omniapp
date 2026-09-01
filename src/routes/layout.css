@@ -647,6 +647,14 @@ pre {
   font-weight: 800;
   letter-spacing: 0.14em;
 }
+.package-field > span em {
+  margin-left: 5px;
+  color: #a2a8a1;
+  font-size: 8px;
+  font-style: normal;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+}
 .package-form-heading strong,
 .package-list-heading strong {
   font-family: Georgia, "Times New Roman", serif;
@@ -865,6 +873,42 @@ pre {
   text-overflow: ellipsis;
   white-space: nowrap;
   font-size: 9px;
+}
+.expected-date-field {
+  min-height: 34px;
+  margin: -3px 0 10px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.expected-date-field > span {
+  flex: 0 0 auto;
+  color: #747c75;
+  font-size: 9px;
+  font-weight: 700;
+}
+.expected-date-field input {
+  width: 136px;
+  height: 30px;
+  padding: 0 7px;
+  border: 1px solid #d4d6cd;
+  border-radius: 5px;
+  outline: 0;
+  background: white;
+  color: #566159;
+  font-size: 9px;
+}
+.expected-date-field input:focus {
+  border-color: var(--green);
+  box-shadow: 0 0 0 2px rgb(35 95 69 / 9%);
+}
+.expected-date-field input:disabled {
+  opacity: 0.6;
+}
+.expected-date-field em {
+  color: #8b928c;
+  font-size: 8px;
+  font-style: normal;
 }
 .package-actions {
   display: flex;
@@ -1087,6 +1131,9 @@ footer {
     grid-template-columns: 1fr;
   }
   .package-actions {
+    flex-wrap: wrap;
+  }
+  .expected-date-field {
     flex-wrap: wrap;
   }
   .package-actions .remove-package {
