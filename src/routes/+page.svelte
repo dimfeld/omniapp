@@ -56,7 +56,7 @@
   ];
 
   let activeTool = $state<Tool>("json");
-  let jsonInput = $state('{\n  "hello": "world",\n  "useful": true\n}');
+  let jsonInput = $state("");
   let jsonOutput = $state("");
   let jsonError = $state("");
   let base64Input = $state("");
@@ -80,7 +80,6 @@
   const timeResult = $derived(parseTimeInput(timeInput));
 
   onMount(() => {
-    timeInput = String(Math.floor(Date.now() / 1000));
     void loadPackages();
     const timer = window.setInterval(() => (now = new Date()), 1000);
     return () => window.clearInterval(timer);
