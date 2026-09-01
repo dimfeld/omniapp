@@ -1,8 +1,19 @@
 <script lang="ts">
   import { onMount } from "svelte";
+  import { parseGcodeFilament, type FilamentUse } from "$lib/filament/gcode";
 
-  type Tool = "json" | "base64" | "time" | "packages";
-  type IconName = Tool | "copy" | "check" | "trash" | "arrow" | "sparkles" | "clock" | "external";
+  type Tool = "json" | "base64" | "time" | "packages" | "filament";
+  type IconName =
+    | Tool
+    | "copy"
+    | "check"
+    | "trash"
+    | "arrow"
+    | "sparkles"
+    | "clock"
+    | "external"
+    | "upload"
+    | "close";
 
   type Carrier = "usps" | "ups" | "fedex" | "dhl" | "ontrac";
 
@@ -14,6 +25,18 @@
     trackingUrl: string;
     expectedDeliveryDate: string | null;
     delivered: boolean;
+    addedAt: number;
+  };
+
+  type FilamentRoll = {
+    id: string;
+    name: string | null;
+    material: string;
+    color: string;
+    initialWeight: number;
+    remainingWeight: number;
+    lowThreshold: number;
+    lowAlertDismissed: boolean;
     addedAt: number;
   };
 
@@ -53,6 +76,7 @@
     { id: "base64", label: "Base64", description: "Encode or decode" },
     { id: "time", label: "Date & time", description: "Convert timestamps" },
     { id: "packages", label: "Packages", description: "Track your deliveries" },
+    { id: "filament", label: "Filament", description: "Manage printer rolls" },
   ];
 
   let activeTool = $state<Tool>("json");
@@ -75,12 +99,31 @@
   let packagesLoading = $state(true);
   let packageSubmitting = $state(false);
   let updatingPackageId = $state("");
+  let filamentRolls = $state<FilamentRoll[]>([]);
+  let filamentName = $state("");
+  let filamentMaterial = $state("PLA");
+  let filamentColor = $state("");
+  let filamentWeight = $state("1000");
+  let filamentLowThreshold = $state("100");
+  let filamentError = $state("");
+  let filamentLoading = $state(true);
+  let filamentSubmitting = $state(false);
+  let gcodeUses = $state<FilamentUse[]>([]);
+  let gcodeFilename = $state("");
+  let filamentAssignments = $state<Record<number, string>>({});
+  let applyingFilament = $state(false);
 
   const active = $derived(tools.find((tool) => tool.id === activeTool) ?? tools[0]);
   const timeResult = $derived(parseTimeInput(timeInput, now));
+  const lowFilamentRolls = $derived(
+    filamentRolls.filter(
+      (roll) => roll.remainingWeight <= roll.lowThreshold && !roll.lowAlertDismissed
+    )
+  );
 
   onMount(() => {
     void loadPackages();
+    void loadFilamentRolls();
     const timer = window.setInterval(() => (now = new Date()), 1000);
     return () => window.clearInterval(timer);
   });
@@ -99,6 +142,10 @@
       clock: "M12 7v5l3 2M21 12a9 9 0 1 1-9-9 9 9 0 0 1 9 9Z",
       packages: "M21 8.5 12 13 3 8.5M12 13v9M4.5 7.75 12 4l7.5 3.75v8.5L12 20l-7.5-3.75v-8.5Z",
       external: "M14 4h6v6m0-6-9 9M18 13v7H4V6h7",
+      filament:
+        "M8 5.5a5.5 5.5 0 1 1 0 11 5.5 5.5 0 0 1 0-11Zm0 3a2.5 2.5 0 1 1 0 5 2.5 2.5 0 0 1 0-5Zm5.5 2.5H21v6m0 0-2-2m2 2 2-2",
+      upload: "M12 16V4m0 0L7 9m5-5 5 5M5 15v5h14v-5",
+      close: "M6 6l12 12M18 6 6 18",
     };
     return paths[name];
   }
@@ -349,6 +396,153 @@
     if (item.carrier === "custom") return "Tracking link";
     return carriers.find((option) => option.id === item.carrier)?.label ?? item.carrier;
   }
+
+  async function loadFilamentRolls() {
+    filamentLoading = true;
+    try {
+      const response = await fetch("/api/filament");
+      if (!response.ok) throw new Error("Could not load filament rolls.");
+      filamentRolls = (await response.json()) as FilamentRoll[];
+    } catch {
+      filamentError = "Could not load filament rolls from the local database.";
+    } finally {
+      filamentLoading = false;
+    }
+  }
+
+  async function addFilamentRoll(event: SubmitEvent) {
+    event.preventDefault();
+    filamentError = "";
+    const initialWeight = Number(filamentWeight);
+    const lowThreshold = Number(filamentLowThreshold);
+    if (!filamentMaterial.trim() || !Number.isFinite(initialWeight) || initialWeight <= 0) {
+      filamentError = "Enter a material and a valid roll weight.";
+      return;
+    }
+    if (!Number.isFinite(lowThreshold) || lowThreshold < 0) {
+      filamentError = "Enter a valid low-weight threshold.";
+      return;
+    }
+
+    filamentSubmitting = true;
+    try {
+      const response = await fetch("/api/filament", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          name: filamentName,
+          material: filamentMaterial,
+          color: filamentColor,
+          initialWeight,
+          lowThreshold,
+        }),
+      });
+      if (!response.ok) throw new Error("Could not save filament roll.");
+      filamentRolls = [(await response.json()) as FilamentRoll, ...filamentRolls];
+      filamentName = "";
+      filamentColor = "";
+      filamentWeight = "1000";
+    } catch {
+      filamentError = "Could not save the filament roll. Try again.";
+    } finally {
+      filamentSubmitting = false;
+    }
+  }
+
+  async function updateFilamentRoll(id: string, update: Partial<FilamentRoll>) {
+    filamentError = "";
+    try {
+      const response = await fetch(`/api/filament/${encodeURIComponent(id)}`, {
+        method: "PATCH",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify(update),
+      });
+      if (!response.ok) throw new Error("Could not update filament roll.");
+      const updated = (await response.json()) as FilamentRoll;
+      filamentRolls = filamentRolls.map((roll) => (roll.id === id ? updated : roll));
+    } catch {
+      filamentError = "Could not update the filament roll.";
+      filamentRolls = [...filamentRolls];
+    }
+  }
+
+  async function removeFilamentRoll(id: string) {
+    filamentError = "";
+    try {
+      const response = await fetch(`/api/filament/${encodeURIComponent(id)}`, {
+        method: "DELETE",
+      });
+      if (!response.ok) throw new Error("Could not remove filament roll.");
+      filamentRolls = filamentRolls.filter((roll) => roll.id !== id);
+    } catch {
+      filamentError = "Could not remove the filament roll.";
+    }
+  }
+
+  async function readGcode(event: Event) {
+    filamentError = "";
+    const input = event.currentTarget as HTMLInputElement;
+    const file = input.files?.[0];
+    if (!file) return;
+    gcodeFilename = file.name;
+    const parsed = parseGcodeFilament(await file.text());
+    if (!parsed.length) {
+      gcodeUses = [];
+      filamentAssignments = {};
+      filamentError = "No filament amount was found in this G-code file.";
+      return;
+    }
+    gcodeUses = parsed;
+    filamentAssignments = Object.fromEntries(
+      parsed.map((_, index) => [index, filamentRolls[index]?.id ?? filamentRolls[0]?.id ?? ""])
+    );
+  }
+
+  function assignFilament(index: number, rollId: string) {
+    filamentAssignments = { ...filamentAssignments, [index]: rollId };
+  }
+
+  async function applyGcodeUse() {
+    filamentError = "";
+    const consumptions = gcodeUses.map((use, index) => ({
+      id: filamentAssignments[index],
+      grams: use.grams,
+    }));
+    if (consumptions.some((item) => !item.id)) {
+      filamentError = "Choose a roll for each filament amount.";
+      return;
+    }
+    applyingFilament = true;
+    try {
+      const response = await fetch("/api/filament", {
+        method: "PATCH",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ consumptions }),
+      });
+      if (!response.ok) {
+        const result = (await response.json()) as { message?: string };
+        throw new Error(result.message || "Could not subtract filament.");
+      }
+      const updated = (await response.json()) as FilamentRoll[];
+      const updates = new Map(updated.map((roll) => [roll.id, roll]));
+      filamentRolls = filamentRolls.map((roll) => updates.get(roll.id) ?? roll);
+      gcodeUses = [];
+      gcodeFilename = "";
+      filamentAssignments = {};
+    } catch (error) {
+      filamentError = error instanceof Error ? error.message : "Could not subtract filament.";
+    } finally {
+      applyingFilament = false;
+    }
+  }
+
+  function rollLabel(roll: FilamentRoll) {
+    return roll.name || `${roll.color ? `${roll.color} ` : ""}${roll.material}`;
+  }
+
+  function formatWeight(value: number) {
+    return `${Math.round(value * 10) / 10} g`;
+  }
 </script>
 
 <svelte:head>
@@ -372,7 +566,7 @@
 
   <div class="workspace">
     <aside class="sidebar">
-      <div class="sidebar-heading"><span>TOOLS</span><span>04</span></div>
+      <div class="sidebar-heading"><span>TOOLS</span><span>05</span></div>
       <nav class="tool-nav" aria-label="Tools">
         {#each tools as tool}
           <button class:active={activeTool === tool.id} onclick={() => (activeTool = tool.id)}>
@@ -388,7 +582,7 @@
       </nav>
       <div class="sidebar-note">
         <svg viewBox="0 0 24 24"><path d={iconPath("sparkles")} /></svg>
-        <div><strong>More soon</strong><span>Filament tools are next.</span></div>
+        <div><strong>Your data stays here</strong><span>Tools use this local device.</span></div>
       </div>
     </aside>
 
@@ -566,7 +760,7 @@
               <strong>No date to show</strong><span>{timeResult.error}</span>
             </div>{/if}
         </section>
-      {:else}
+      {:else if activeTool === "packages"}
         <section class="packages-layout">
           <form class="tool-panel package-form" onsubmit={addPackage}>
             <div class="package-form-heading">
@@ -708,6 +902,218 @@
               </div>
             {/if}
           </div>
+        </section>
+      {:else}
+        <section class="filament-tool">
+          {#if lowFilamentRolls.length}
+            <div class="low-filament-area" aria-label="Low filament rolls">
+              <div class="low-filament-heading">
+                <div>
+                  <span>RUNNING LOW</span>
+                  <strong
+                    >{lowFilamentRolls.length}
+                    {lowFilamentRolls.length === 1 ? "roll needs" : "rolls need"} attention</strong
+                  >
+                </div>
+                <svg viewBox="0 0 24 24"><path d={iconPath("filament")} /></svg>
+              </div>
+              <div class="low-filament-list">
+                {#each lowFilamentRolls as roll (roll.id)}
+                  <article>
+                    <span class="filament-swatch" style:background={roll.color || "#d9ed9d"}></span>
+                    <div>
+                      <strong>{rollLabel(roll)}</strong><span
+                        >{formatWeight(roll.remainingWeight)} remains</span
+                      >
+                    </div>
+                    <button
+                      onclick={() => updateFilamentRoll(roll.id, { lowAlertDismissed: true })}
+                      aria-label={`Dismiss low filament alert for ${rollLabel(roll)}`}
+                    >
+                      <svg viewBox="0 0 24 24"><path d={iconPath("close")} /></svg>
+                    </button>
+                  </article>
+                {/each}
+              </div>
+            </div>
+          {/if}
+
+          <div class="filament-layout">
+            <form class="tool-panel filament-form" onsubmit={addFilamentRoll}>
+              <div class="package-form-heading">
+                <div><span>ADD A ROLL</span><strong>Stock the shelf</strong></div>
+                <svg viewBox="0 0 24 24"><path d={iconPath("filament")} /></svg>
+              </div>
+
+              <label class="package-field">
+                <span>ROLL NAME <em>OPTIONAL</em></span>
+                <input bind:value={filamentName} placeholder="Printer orange" autocomplete="off" />
+              </label>
+              <div class="filament-form-row">
+                <label class="package-field">
+                  <span>MATERIAL</span>
+                  <select bind:value={filamentMaterial}>
+                    <option>PLA</option><option>PETG</option><option>ABS</option><option>ASA</option
+                    ><option>TPU</option><option>NYLON</option><option>PC</option><option
+                      >PVA</option
+                    ><option>OTHER</option>
+                  </select>
+                </label>
+                <label class="package-field">
+                  <span>COLOR <em>OPTIONAL</em></span>
+                  <input bind:value={filamentColor} placeholder="Orange or #f97316" />
+                </label>
+              </div>
+              <div class="filament-form-row">
+                <label class="package-field">
+                  <span>ROLL WEIGHT (G)</span>
+                  <input bind:value={filamentWeight} type="number" min="1" step="0.1" />
+                </label>
+                <label class="package-field">
+                  <span>LOW AT (G)</span>
+                  <input bind:value={filamentLowThreshold} type="number" min="0" step="1" />
+                </label>
+              </div>
+
+              <button class="add-package-button" type="submit" disabled={filamentSubmitting}>
+                <span>{filamentSubmitting ? "Adding…" : "Add roll"}</span>
+                <svg viewBox="0 0 24 24"><path d={iconPath("arrow")} /></svg>
+              </button>
+              <p class="storage-note">
+                <span class="status-dot"></span>Saved in your local Omni database
+              </p>
+            </form>
+
+            <div class="filament-inventory">
+              <div class="package-list-heading">
+                <div><span>YOUR FILAMENT</span><strong>{filamentRolls.length} rolls</strong></div>
+                <span
+                  >{formatWeight(
+                    filamentRolls.reduce((total, roll) => total + roll.remainingWeight, 0)
+                  )} total</span
+                >
+              </div>
+
+              {#if filamentLoading}
+                <div class="package-empty">
+                  <span><svg viewBox="0 0 24 24"><path d={iconPath("clock")} /></svg></span>
+                  <strong>Loading filament…</strong>
+                </div>
+              {:else if filamentRolls.length}
+                <div class="filament-roll-list">
+                  {#each filamentRolls as roll (roll.id)}
+                    <article class="filament-roll-card">
+                      <div
+                        class="filament-roll-visual"
+                        style:--roll-color={roll.color || "#d9ed9d"}
+                      >
+                        <span></span>
+                      </div>
+                      <div class="filament-roll-copy">
+                        <div class="filament-roll-title">
+                          <div><strong>{rollLabel(roll)}</strong><span>{roll.material}</span></div>
+                          <button
+                            onclick={() => removeFilamentRoll(roll.id)}
+                            aria-label={`Remove ${rollLabel(roll)}`}
+                            ><svg viewBox="0 0 24 24"><path d={iconPath("trash")} /></svg></button
+                          >
+                        </div>
+                        <div class="filament-meter">
+                          <span
+                            style:width={`${Math.min(100, (roll.remainingWeight / roll.initialWeight) * 100)}%`}
+                          ></span>
+                        </div>
+                        <div class="filament-weight-row">
+                          <label>
+                            <span>REMAINING</span>
+                            <input
+                              type="number"
+                              min="0"
+                              max={roll.initialWeight}
+                              step="0.1"
+                              value={roll.remainingWeight}
+                              aria-label={`Remaining weight for ${rollLabel(roll)}`}
+                              onchange={(event) => {
+                                const value = Number(event.currentTarget.value);
+                                if (Number.isFinite(value) && value >= 0) {
+                                  void updateFilamentRoll(roll.id, { remainingWeight: value });
+                                }
+                              }}
+                            /><em>g</em>
+                          </label>
+                          <div>
+                            <span>STARTED AT</span><strong
+                              >{formatWeight(roll.initialWeight)}</strong
+                            >
+                          </div>
+                        </div>
+                      </div>
+                    </article>
+                  {/each}
+                </div>
+              {:else}
+                <div class="package-empty">
+                  <span><svg viewBox="0 0 24 24"><path d={iconPath("filament")} /></svg></span>
+                  <strong>No filament rolls yet</strong>
+                  <p>Add a roll to track its material and remaining weight.</p>
+                </div>
+              {/if}
+            </div>
+          </div>
+
+          <section class="tool-panel gcode-panel">
+            <div class="gcode-intro">
+              <div>
+                <span>USE FILAMENT</span>
+                <strong>Subtract a print</strong>
+                <p>Upload G-code from PrusaSlicer, OrcaSlicer, Bambu Studio, or Cura.</p>
+              </div>
+              <label class="gcode-upload">
+                <svg viewBox="0 0 24 24"><path d={iconPath("upload")} /></svg>
+                <span>{gcodeFilename || "Choose G-code"}</span>
+                <input type="file" accept=".gcode,.gco,.gc" onchange={readGcode} />
+              </label>
+            </div>
+
+            {#if gcodeUses.length}
+              <div class="gcode-uses">
+                {#each gcodeUses as use, index}
+                  <div class="gcode-use-row">
+                    <div>
+                      <strong>{use.label}</strong>
+                      <span
+                        >{formatWeight(use.grams)}{use.source === "weight"
+                          ? ""
+                          : " estimated"}</span
+                      >
+                    </div>
+                    <label>
+                      <span>SUBTRACT FROM</span>
+                      <select
+                        value={filamentAssignments[index] ?? ""}
+                        onchange={(event) => assignFilament(index, event.currentTarget.value)}
+                      >
+                        <option value="">Choose a roll</option>
+                        {#each filamentRolls as roll}
+                          <option value={roll.id}
+                            >{rollLabel(roll)} · {formatWeight(roll.remainingWeight)}</option
+                          >
+                        {/each}
+                      </select>
+                    </label>
+                  </div>
+                {/each}
+                <button
+                  class="apply-filament-button"
+                  onclick={applyGcodeUse}
+                  disabled={applyingFilament || !filamentRolls.length}
+                  >{applyingFilament ? "Subtracting…" : "Subtract from selected rolls"}</button
+                >
+              </div>
+            {/if}
+          </section>
+
+          {#if filamentError}<p class="filament-error" role="alert">{filamentError}</p>{/if}
         </section>
       {/if}
 

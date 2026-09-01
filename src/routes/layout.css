@@ -984,6 +984,376 @@ pre {
   font-size: 10px;
   line-height: 1.55;
 }
+.filament-tool {
+  display: grid;
+  gap: 18px;
+}
+.low-filament-area {
+  padding: 18px 20px;
+  border: 1px solid #dec98f;
+  border-radius: 10px;
+  background: #fff8df;
+  box-shadow: 0 8px 24px rgb(91 70 17 / 6%);
+}
+.low-filament-heading {
+  margin-bottom: 13px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.low-filament-heading > div {
+  display: grid;
+  gap: 3px;
+}
+.low-filament-heading span,
+.gcode-intro > div > span,
+.gcode-use-row label > span {
+  color: #8c7336;
+  font-size: 8px;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+}
+.low-filament-heading strong {
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 18px;
+  font-weight: 500;
+}
+.low-filament-heading > svg {
+  width: 29px;
+  height: 29px;
+  color: #9b7b2c;
+}
+.low-filament-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+  gap: 8px;
+}
+.low-filament-list article {
+  min-width: 0;
+  padding: 10px;
+  display: grid;
+  grid-template-columns: 12px minmax(0, 1fr) 26px;
+  align-items: center;
+  gap: 9px;
+  border: 1px solid #eadba9;
+  border-radius: 7px;
+  background: rgb(255 255 255 / 60%);
+}
+.filament-swatch {
+  width: 10px;
+  height: 32px;
+  display: block;
+  border: 1px solid rgb(23 33 27 / 12%);
+  border-radius: 99px;
+}
+.low-filament-list article > div {
+  min-width: 0;
+  display: grid;
+  gap: 2px;
+}
+.low-filament-list article strong {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 11px;
+}
+.low-filament-list article span {
+  color: #8c7950;
+  font-size: 9px;
+}
+.low-filament-list button,
+.filament-roll-title button {
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  display: grid;
+  place-items: center;
+  border: 0;
+  border-radius: 5px;
+  background: transparent;
+  color: #9b8c68;
+  cursor: pointer;
+}
+.low-filament-list button:hover {
+  background: #f4e8bb;
+  color: #6b561f;
+}
+.low-filament-list button svg,
+.filament-roll-title button svg {
+  width: 14px;
+}
+.filament-layout {
+  display: grid;
+  grid-template-columns: minmax(300px, 0.72fr) minmax(400px, 1.28fr);
+  gap: 18px;
+  align-items: start;
+}
+.filament-form {
+  padding: 25px;
+  overflow: visible;
+}
+.filament-form-row {
+  margin-top: 15px;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 9px;
+}
+.filament-form-row .package-field {
+  margin: 0;
+}
+.filament-inventory {
+  min-width: 0;
+}
+.filament-roll-list {
+  padding-top: 12px;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 9px;
+}
+.filament-roll-card {
+  min-width: 0;
+  padding: 14px;
+  display: grid;
+  grid-template-columns: 50px minmax(0, 1fr);
+  gap: 13px;
+  border: 1px solid #d2d4ca;
+  border-radius: 9px;
+  background: var(--paper);
+  box-shadow: 0 6px 18px rgb(28 42 33 / 4%);
+}
+.filament-roll-visual {
+  width: 50px;
+  height: 66px;
+  display: grid;
+  place-items: center;
+  border: 5px solid var(--ink);
+  border-radius: 9px 9px 13px 13px;
+  background: var(--roll-color);
+  box-shadow: inset 0 0 0 3px rgb(255 255 255 / 35%);
+}
+.filament-roll-visual span {
+  width: 20px;
+  height: 20px;
+  display: block;
+  border: 5px solid var(--ink);
+  border-radius: 50%;
+  background: var(--paper);
+}
+.filament-roll-copy {
+  min-width: 0;
+}
+.filament-roll-title {
+  display: flex;
+  justify-content: space-between;
+  gap: 7px;
+}
+.filament-roll-title > div {
+  min-width: 0;
+  display: grid;
+  gap: 2px;
+}
+.filament-roll-title strong {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 11px;
+}
+.filament-roll-title span {
+  color: var(--green);
+  font-size: 8px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+}
+.filament-roll-title button {
+  flex: 0 0 auto;
+  color: #a2a7a1;
+}
+.filament-roll-title button:hover {
+  background: #eeeae2;
+  color: #8f4539;
+}
+.filament-meter {
+  height: 5px;
+  margin: 12px 0 9px;
+  overflow: hidden;
+  border-radius: 99px;
+  background: #e5e5dd;
+}
+.filament-meter span {
+  height: 100%;
+  display: block;
+  border-radius: inherit;
+  background: var(--green);
+}
+.filament-weight-row {
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  gap: 9px;
+}
+.filament-weight-row label,
+.filament-weight-row > div {
+  min-width: 0;
+  display: grid;
+  grid-template-columns: auto auto;
+  align-items: center;
+  justify-content: start;
+  gap: 2px;
+}
+.filament-weight-row label > span,
+.filament-weight-row > div > span {
+  grid-column: 1 / -1;
+  color: #939990;
+  font-size: 7px;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+}
+.filament-weight-row input {
+  width: 62px;
+  height: 25px;
+  padding: 0 5px;
+  border: 1px solid #d4d6cd;
+  border-radius: 4px;
+  background: white;
+  color: var(--ink);
+  font-size: 9px;
+  font-weight: 700;
+}
+.filament-weight-row em,
+.filament-weight-row strong {
+  color: #667068;
+  font-size: 8px;
+  font-style: normal;
+}
+.gcode-panel {
+  padding: 22px 25px;
+  overflow: visible;
+}
+.gcode-intro {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+}
+.gcode-intro > div {
+  display: grid;
+  gap: 4px;
+}
+.gcode-intro > div > span,
+.gcode-use-row label > span {
+  color: #788079;
+}
+.gcode-intro strong {
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 20px;
+  font-weight: 500;
+}
+.gcode-intro p {
+  margin: 1px 0 0;
+  color: #8b928b;
+  font-size: 9px;
+}
+.gcode-upload {
+  min-width: 155px;
+  min-height: 42px;
+  padding: 0 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  overflow: hidden;
+  border: 1px solid var(--ink);
+  border-radius: 6px;
+  background: var(--ink);
+  color: white;
+  font-size: 10px;
+  font-weight: 700;
+  cursor: pointer;
+}
+.gcode-upload svg {
+  width: 15px;
+  flex: 0 0 auto;
+  color: var(--lime);
+}
+.gcode-upload span {
+  max-width: 180px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.gcode-upload input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+}
+.gcode-uses {
+  margin-top: 18px;
+  padding-top: 15px;
+  display: grid;
+  gap: 8px;
+  border-top: 1px solid var(--line);
+}
+.gcode-use-row {
+  padding: 10px 12px;
+  display: grid;
+  grid-template-columns: minmax(130px, 0.45fr) minmax(220px, 0.55fr);
+  align-items: center;
+  gap: 18px;
+  border: 1px solid #dedfd7;
+  border-radius: 7px;
+  background: #f8f7f2;
+}
+.gcode-use-row > div,
+.gcode-use-row label {
+  display: grid;
+  gap: 4px;
+}
+.gcode-use-row > div strong {
+  font-size: 11px;
+}
+.gcode-use-row > div span {
+  color: var(--green);
+  font-family: "SFMono-Regular", Consolas, monospace;
+  font-size: 10px;
+  font-weight: 700;
+}
+.gcode-use-row select {
+  width: 100%;
+  height: 36px;
+  padding: 0 10px;
+  border: 1px solid #cfd2c8;
+  border-radius: 5px;
+  background: white;
+  color: var(--ink);
+  font-size: 10px;
+}
+.apply-filament-button {
+  min-height: 39px;
+  margin-top: 2px;
+  padding: 0 15px;
+  justify-self: end;
+  border: 1px solid var(--green);
+  border-radius: 6px;
+  background: var(--green);
+  color: white;
+  font-size: 10px;
+  font-weight: 700;
+  cursor: pointer;
+}
+.apply-filament-button:disabled {
+  opacity: 0.6;
+  cursor: wait;
+}
+.filament-error {
+  margin: 0;
+  padding: 11px 13px;
+  border: 1px solid #e4bcb3;
+  border-radius: 7px;
+  background: #fff2ef;
+  color: #9d4032;
+  font-size: 10px;
+}
 footer {
   margin-top: auto;
   padding-top: 22px;
@@ -1013,7 +1383,7 @@ footer {
     margin: 0 -16px 28px;
     padding: 8px 10px 0;
     display: grid;
-    grid-template-columns: repeat(4, 1fr);
+    grid-template-columns: repeat(5, 1fr);
     gap: 4px;
     border-bottom: 1px solid var(--line);
     background: #eeece4;
@@ -1085,6 +1455,12 @@ footer {
   .packages-layout {
     grid-template-columns: 1fr;
   }
+  .filament-layout {
+    grid-template-columns: 1fr;
+  }
+  .filament-roll-list {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
   .package-form {
     padding: 20px;
   }
@@ -1129,6 +1505,18 @@ footer {
   }
   .carrier-row {
     grid-template-columns: 1fr;
+  }
+  .filament-form-row,
+  .filament-roll-list,
+  .gcode-use-row {
+    grid-template-columns: 1fr;
+  }
+  .gcode-intro {
+    align-items: stretch;
+    flex-direction: column;
+  }
+  .gcode-upload {
+    width: 100%;
   }
   .package-actions {
     flex-wrap: wrap;

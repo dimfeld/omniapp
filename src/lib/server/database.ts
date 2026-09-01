@@ -30,6 +30,24 @@ const migrations: Migration[] = [
     name: "add_expected_delivery_date",
     statements: ["ALTER TABLE packages ADD COLUMN expected_delivery_date TEXT"],
   },
+  {
+    version: 3,
+    name: "create_filament_rolls",
+    statements: [
+      `CREATE TABLE filament_rolls (
+        id TEXT PRIMARY KEY,
+        name TEXT,
+        material TEXT NOT NULL,
+        color TEXT NOT NULL DEFAULT '',
+        initial_weight REAL NOT NULL CHECK (initial_weight > 0),
+        remaining_weight REAL NOT NULL CHECK (remaining_weight >= 0),
+        low_threshold REAL NOT NULL DEFAULT 100 CHECK (low_threshold >= 0),
+        low_alert_dismissed INTEGER NOT NULL DEFAULT 0 CHECK (low_alert_dismissed IN (0, 1)),
+        added_at INTEGER NOT NULL
+      )`,
+      "CREATE INDEX filament_rolls_material ON filament_rolls(material, added_at DESC)",
+    ],
+  },
 ];
 
 export function migrateDatabase(database: Database, availableMigrations = migrations) {

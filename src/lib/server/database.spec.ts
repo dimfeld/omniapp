@@ -22,10 +22,16 @@ describe("database migrations", () => {
         "SELECT name FROM pragma_table_info('packages') WHERE name = ?"
       )
       .get("expected_delivery_date");
+    const filamentTable = database
+      .query<{ name: string }, []>(
+        "SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'filament_rolls'"
+      )
+      .get();
 
-    expect(migrationCount?.count).toBe(2);
+    expect(migrationCount?.count).toBe(3);
     expect(packageTable?.name).toBe("packages");
     expect(expectedDateColumn?.name).toBe("expected_delivery_date");
+    expect(filamentTable?.name).toBe("filament_rolls");
     database.close();
   });
 
