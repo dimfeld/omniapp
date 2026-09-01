@@ -84,6 +84,7 @@
   let jsonInput = $state("");
   let jsonOutput = $state("");
   let jsonError = $state("");
+  let jsonFormat = $state<"pretty" | "minified">("pretty");
   let base64Input = $state("");
   let base64Output = $state("");
   let base64Error = $state("");
@@ -165,12 +166,14 @@
     return paths[name];
   }
 
-  function formatJson(minified = false) {
+  function formatJson(minified = jsonFormat === "minified", live = false) {
+    jsonFormat = minified ? "minified" : "pretty";
     jsonError = "";
     try {
       const parsed = JSON.parse(jsonInput);
       jsonOutput = JSON.stringify(parsed, null, minified ? 0 : 2);
     } catch (error) {
+      if (live) return;
       jsonOutput = "";
       jsonError = error instanceof Error ? error.message : "That JSON is not valid.";
     }
@@ -626,10 +629,12 @@
         <section class="tool-panel">
           <div class="panel-toolbar">
             <div class="segmented-actions">
-              <button class="primary" onclick={() => formatJson(false)}
+              <button class:primary={jsonFormat === "pretty"} onclick={() => formatJson(false)}
                 ><svg viewBox="0 0 24 24"><path d={iconPath("sparkles")} /></svg>Prettify</button
               >
-              <button onclick={() => formatJson(true)}>Minify</button>
+              <button class:primary={jsonFormat === "minified"} onclick={() => formatJson(true)}
+                >Minify</button
+              >
             </div>
             <button
               class="icon-button"
@@ -646,8 +651,11 @@
           <div class="editor-grid">
             <label class="editor-pane">
               <span class="pane-label"><span>INPUT</span><em>{jsonInput.length} chars</em></span>
-              <textarea bind:value={jsonInput} spellcheck="false" placeholder="Paste JSON here…"
-              ></textarea>
+              <textarea
+                bind:value={jsonInput}
+                oninput={() => formatJson(jsonFormat === "minified", true)}
+                spellcheck="false"
+                placeholder="Paste JSON here…"></textarea>
             </label>
             <div class="editor-pane output-pane">
               <span class="pane-label"
