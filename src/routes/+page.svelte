@@ -905,6 +905,58 @@
         </section>
       {:else}
         <section class="filament-tool">
+          <section class="tool-panel gcode-panel">
+            <div class="gcode-intro">
+              <div>
+                <span>USE FILAMENT</span>
+                <strong>Subtract a print</strong>
+                <p>Upload G-code from PrusaSlicer, OrcaSlicer, Bambu Studio, or Cura.</p>
+              </div>
+              <label class="gcode-upload">
+                <svg viewBox="0 0 24 24"><path d={iconPath("upload")} /></svg>
+                <span>{gcodeFilename || "Choose G-code"}</span>
+                <input type="file" accept=".gcode,.gco,.gc" onchange={readGcode} />
+              </label>
+            </div>
+
+            {#if gcodeUses.length}
+              <div class="gcode-uses">
+                {#each gcodeUses as use, index}
+                  <div class="gcode-use-row">
+                    <div>
+                      <strong>{use.label}</strong>
+                      <span
+                        >{formatWeight(use.grams)}{use.source === "weight"
+                          ? ""
+                          : " estimated"}</span
+                      >
+                    </div>
+                    <label>
+                      <span>SUBTRACT FROM</span>
+                      <select
+                        value={filamentAssignments[index] ?? ""}
+                        onchange={(event) => assignFilament(index, event.currentTarget.value)}
+                      >
+                        <option value="">Choose a roll</option>
+                        {#each filamentRolls as roll}
+                          <option value={roll.id}
+                            >{rollLabel(roll)} · {formatWeight(roll.remainingWeight)}</option
+                          >
+                        {/each}
+                      </select>
+                    </label>
+                  </div>
+                {/each}
+                <button
+                  class="apply-filament-button"
+                  onclick={applyGcodeUse}
+                  disabled={applyingFilament || !filamentRolls.length}
+                  >{applyingFilament ? "Subtracting…" : "Subtract from selected rolls"}</button
+                >
+              </div>
+            {/if}
+          </section>
+
           {#if lowFilamentRolls.length}
             <div class="low-filament-area" aria-label="Low filament rolls">
               <div class="low-filament-heading">
@@ -1060,58 +1112,6 @@
               {/if}
             </div>
           </div>
-
-          <section class="tool-panel gcode-panel">
-            <div class="gcode-intro">
-              <div>
-                <span>USE FILAMENT</span>
-                <strong>Subtract a print</strong>
-                <p>Upload G-code from PrusaSlicer, OrcaSlicer, Bambu Studio, or Cura.</p>
-              </div>
-              <label class="gcode-upload">
-                <svg viewBox="0 0 24 24"><path d={iconPath("upload")} /></svg>
-                <span>{gcodeFilename || "Choose G-code"}</span>
-                <input type="file" accept=".gcode,.gco,.gc" onchange={readGcode} />
-              </label>
-            </div>
-
-            {#if gcodeUses.length}
-              <div class="gcode-uses">
-                {#each gcodeUses as use, index}
-                  <div class="gcode-use-row">
-                    <div>
-                      <strong>{use.label}</strong>
-                      <span
-                        >{formatWeight(use.grams)}{use.source === "weight"
-                          ? ""
-                          : " estimated"}</span
-                      >
-                    </div>
-                    <label>
-                      <span>SUBTRACT FROM</span>
-                      <select
-                        value={filamentAssignments[index] ?? ""}
-                        onchange={(event) => assignFilament(index, event.currentTarget.value)}
-                      >
-                        <option value="">Choose a roll</option>
-                        {#each filamentRolls as roll}
-                          <option value={roll.id}
-                            >{rollLabel(roll)} · {formatWeight(roll.remainingWeight)}</option
-                          >
-                        {/each}
-                      </select>
-                    </label>
-                  </div>
-                {/each}
-                <button
-                  class="apply-filament-button"
-                  onclick={applyGcodeUse}
-                  disabled={applyingFilament || !filamentRolls.length}
-                  >{applyingFilament ? "Subtracting…" : "Subtract from selected rolls"}</button
-                >
-              </div>
-            {/if}
-          </section>
 
           {#if filamentError}<p class="filament-error" role="alert">{filamentError}</p>{/if}
         </section>
