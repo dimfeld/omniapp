@@ -121,11 +121,25 @@
     )
   );
 
+  function selectToolByShortcut(event: KeyboardEvent) {
+    if (!event.ctrlKey || event.altKey || event.metaKey || event.shiftKey) return;
+
+    const toolIndex = Number(event.key) - 1;
+    if (!Number.isInteger(toolIndex) || toolIndex < 0 || toolIndex >= tools.length) return;
+
+    event.preventDefault();
+    activeTool = tools[toolIndex].id;
+  }
+
   onMount(() => {
     void loadPackages();
     void loadFilamentRolls();
+    window.addEventListener("keydown", selectToolByShortcut);
     const timer = window.setInterval(() => (now = new Date()), 1000);
-    return () => window.clearInterval(timer);
+    return () => {
+      window.removeEventListener("keydown", selectToolByShortcut);
+      window.clearInterval(timer);
+    };
   });
 
   function iconPath(name: IconName): string {
