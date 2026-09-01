@@ -88,6 +88,7 @@
   let base64Input = $state("");
   let base64Output = $state("");
   let base64Error = $state("");
+  let base64Mode = $state<"encode" | "decode">("encode");
   let timeInput = $state("");
   let copied = $state("");
   let now = $state(new Date());
@@ -179,7 +180,8 @@
     }
   }
 
-  function encodeBase64() {
+  function encodeBase64(live = false) {
+    base64Mode = "encode";
     base64Error = "";
     try {
       const bytes = new TextEncoder().encode(base64Input);
@@ -187,12 +189,14 @@
       for (const byte of bytes) binary += String.fromCharCode(byte);
       base64Output = btoa(binary);
     } catch {
+      if (live) return;
       base64Output = "";
       base64Error = "This text could not be encoded.";
     }
   }
 
-  function decodeBase64() {
+  function decodeBase64(live = false) {
+    base64Mode = "decode";
     base64Error = "";
     try {
       const normalized = base64Input.replace(/\s/g, "");
@@ -200,6 +204,7 @@
       const bytes = Uint8Array.from(binary, (char) => char.charCodeAt(0));
       base64Output = new TextDecoder("utf-8", { fatal: true }).decode(bytes);
     } catch {
+      if (live) return;
       base64Output = "";
       base64Error = "Enter valid Base64-encoded UTF-8 text.";
     }
@@ -684,8 +689,10 @@
         <section class="tool-panel">
           <div class="panel-toolbar">
             <div class="segmented-actions">
-              <button class="primary" onclick={encodeBase64}>Encode</button><button
-                onclick={decodeBase64}>Decode</button
+              <button class:primary={base64Mode === "encode"} onclick={() => encodeBase64()}
+                >Encode</button
+              ><button class:primary={base64Mode === "decode"} onclick={() => decodeBase64()}
+                >Decode</button
               >
             </div>
             <button
@@ -704,6 +711,7 @@
               ><span class="pane-label"><span>TEXT OR BASE64</span><em>UTF-8 supported</em></span
               ><textarea
                 bind:value={base64Input}
+                oninput={() => (base64Mode === "encode" ? encodeBase64(true) : decodeBase64(true))}
                 spellcheck="false"
                 placeholder="Type or paste content here…"></textarea></label
             >
