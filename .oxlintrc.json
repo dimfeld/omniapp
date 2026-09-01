@@ -1,0 +1,10 @@
+{
+  "$schema": "./node_modules/oxlint/configuration_schema.json",
+  "env": {
+    "browser": true,
+    "node": true,
+    "svelte": true,
+    "vitest": true
+  },
+  "ignorePatterns": [".svelte-kit/**", "build/**", "node_modules/**"]
+}
