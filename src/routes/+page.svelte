@@ -4,17 +4,7 @@
   import { inferTrackingDetails, type Carrier as TrackingCarrier } from "$lib/packages/tracking";
 
   type Tool = "json" | "base64" | "time" | "packages" | "filament";
-  type IconName =
-    | Tool
-    | "copy"
-    | "check"
-    | "trash"
-    | "arrow"
-    | "sparkles"
-    | "clock"
-    | "external"
-    | "upload"
-    | "close";
+  type IconName = Tool | "copy" | "check" | "trash" | "external" | "upload" | "close";
 
   type Carrier = TrackingCarrier;
 
@@ -153,10 +143,6 @@
       copy: "M8 8h11v11H8zM5 16H4V5h11v1",
       check: "m5 12 4 4L19 6",
       trash: "M4 7h16M9 7V4h6v3m3 0-1 13H7L6 7m4 4v5m4-5v5",
-      arrow: "M5 12h14m-5-5 5 5-5 5",
-      sparkles:
-        "m12 3 1.2 3.8L17 8l-3.8 1.2L12 13l-1.2-3.8L7 8l3.8-1.2L12 3ZM5 14l.8 2.2L8 17l-2.2.8L5 20l-.8-2.2L2 17l2.2-.8L5 14Zm13-1 .8 2.2 2.2.8-2.2.8L18 19l-.8-2.2L15 16l2.2-.8L18 13Z",
-      clock: "M12 7v5l3 2M21 12a9 9 0 1 1-9-9 9 9 0 0 1 9 9Z",
       packages: "M21 8.5 12 13 3 8.5M12 13v9M4.5 7.75 12 4l7.5 3.75v8.5L12 20l-7.5-3.75v-8.5Z",
       external: "M14 4h6v6m0-6-9 9M18 13v7H4V6h7",
       filament:
@@ -288,7 +274,7 @@
       if (!response.ok) throw new Error("Could not load packages.");
       packages = sortPackages((await response.json()) as Package[]);
     } catch {
-      packageError = "Could not load packages from the local database.";
+      packageError = "Could not load packages.";
     } finally {
       packagesLoading = false;
     }
@@ -431,7 +417,7 @@
       if (!response.ok) throw new Error("Could not load filament rolls.");
       filamentRolls = (await response.json()) as FilamentRoll[];
     } catch {
-      filamentError = "Could not load filament rolls from the local database.";
+      filamentError = "Could not load filament rolls.";
     } finally {
       filamentLoading = false;
     }
@@ -573,589 +559,428 @@
 </script>
 
 <svelte:head>
-  <title>Omni — Your useful little toolbox</title>
-  <meta name="description" content="A private toolbox for JSON, Base64, timestamps, and more." />
+  <title>Omni</title>
 </svelte:head>
 
-<div class="app-shell">
-  <header class="topbar">
-    <a class="brand" href="/" aria-label="Omni home">
-      <span class="brand-mark" aria-hidden="true"><span></span><span></span><span></span></span>
-      <span>omni</span>
-    </a>
-    <div class="topbar-meta">
-      <span class="privacy"><span class="status-dot"></span>Runs locally</span>
-      <span class="live-time"
-        >{now.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</span
-      >
+<div class="app">
+  <nav class="rail" aria-label="Tools">
+    <a class="brand" href="/">omni</a>
+    <div class="rail-tools">
+      {#each tools as tool, index}
+        <button
+          class:active={activeTool === tool.id}
+          onclick={() => (activeTool = tool.id)}
+          title={`${tool.label} (Ctrl+${index + 1})`}
+        >
+          <svg viewBox="0 0 24 24"><path d={iconPath(tool.id)} /></svg>
+          <span>{tool.label}</span>
+        </button>
+      {/each}
     </div>
-  </header>
+  </nav>
 
-  <div class="workspace">
-    <aside class="sidebar">
-      <div class="sidebar-heading"><span>TOOLS</span><span>05</span></div>
-      <nav class="tool-nav" aria-label="Tools">
-        {#each tools as tool}
-          <button class:active={activeTool === tool.id} onclick={() => (activeTool = tool.id)}>
-            <span class="tool-icon"
-              ><svg viewBox="0 0 24 24"><path d={iconPath(tool.id)} /></svg></span
+  <main>
+    <h1>{active.label}</h1>
+
+    {#if activeTool === "json"}
+      <section class="panel">
+        <div class="toolbar">
+          <div class="actions">
+            <button class="primary" onclick={() => formatJson(false)}>Prettify</button>
+            <button onclick={() => formatJson(true)}>Minify</button>
+          </div>
+          <button
+            class="ghost"
+            onclick={() => {
+              jsonInput = "";
+              jsonOutput = "";
+              jsonError = "";
+            }}>Clear</button
+          >
+        </div>
+        <div class="split">
+          <label class="pane">
+            <span class="pane-label">Input<em>{jsonInput.length} chars</em></span>
+            <textarea
+              bind:value={jsonInput}
+              oninput={() => formatJson(jsonFormat === "minified", true)}
+              spellcheck="false"
+              placeholder="Paste JSON…"
+            ></textarea>
+          </label>
+          <div class="pane output">
+            <span class="pane-label"
+              >Output<button onclick={() => copyText(jsonOutput, "json")} disabled={!jsonOutput}
+                ><svg viewBox="0 0 24 24"
+                  ><path d={iconPath(copied === "json" ? "check" : "copy")} /></svg
+                >{copied === "json" ? "Copied" : "Copy"}</button
+              ></span
             >
-            <span class="tool-copy"
-              ><strong>{tool.label}</strong><small>{tool.description}</small></span
-            >
-            <span class="nav-arrow">›</span>
-          </button>
-        {/each}
-      </nav>
-      <div class="sidebar-note">
-        <svg viewBox="0 0 24 24"><path d={iconPath("sparkles")} /></svg>
-        <div><strong>Your data stays here</strong><span>Tools use this local device.</span></div>
-      </div>
-    </aside>
-
-    <main>
-      <div class="mobile-tabs" aria-label="Tools">
-        {#each tools as tool}
-          <button class:active={activeTool === tool.id} onclick={() => (activeTool = tool.id)}>
-            <svg viewBox="0 0 24 24"><path d={iconPath(tool.id)} /></svg><span>{tool.label}</span>
-          </button>
-        {/each}
-      </div>
-
-      <section class="page-intro">
-        <div>
-          <p class="eyebrow">QUICK UTILITY</p>
-          <h1>{active.label}</h1>
-          <p>{active.description}. Nothing leaves this device.</p>
+            {#if jsonError}
+              <p class="error">{jsonError}</p>
+            {:else}
+              <pre class:placeholder={!jsonOutput}>{jsonOutput ||
+                  "Formatted JSON appears here."}</pre>
+            {/if}
+          </div>
         </div>
       </section>
-
-      {#if activeTool === "json"}
-        <section class="tool-panel">
-          <div class="panel-toolbar">
-            <div class="segmented-actions">
-              <button class:primary={jsonFormat === "pretty"} onclick={() => formatJson(false)}
-                ><svg viewBox="0 0 24 24"><path d={iconPath("sparkles")} /></svg>Prettify</button
-              >
-              <button class:primary={jsonFormat === "minified"} onclick={() => formatJson(true)}
-                >Minify</button
+    {:else if activeTool === "base64"}
+      <section class="panel">
+        <div class="toolbar">
+          <div class="actions">
+            <button class="primary" onclick={() => encodeBase64()}>Encode</button>
+            <button onclick={() => decodeBase64()}>Decode</button>
+          </div>
+          <button
+            class="ghost"
+            onclick={() => {
+              base64Input = "";
+              base64Output = "";
+              base64Error = "";
+            }}>Clear</button
+          >
+        </div>
+        <div class="split">
+          <label class="pane">
+            <span class="pane-label">Input<em>Text or Base64</em></span>
+            <textarea
+              bind:value={base64Input}
+              oninput={() => (base64Mode === "encode" ? encodeBase64(true) : decodeBase64(true))}
+              spellcheck="false"
+              placeholder="Type or paste…"
+            ></textarea>
+          </label>
+          <div class="pane output">
+            <span class="pane-label"
+              >Output<button
+                onclick={() => copyText(base64Output, "base64")}
+                disabled={!base64Output}
+                ><svg viewBox="0 0 24 24"
+                  ><path d={iconPath(copied === "base64" ? "check" : "copy")} /></svg
+                >{copied === "base64" ? "Copied" : "Copy"}</button
+              ></span
+            >
+            {#if base64Error}
+              <p class="error">{base64Error}</p>
+            {:else}
+              <pre class:placeholder={!base64Output}>{base64Output || "Result appears here."}</pre>
+            {/if}
+          </div>
+        </div>
+      </section>
+    {:else if activeTool === "time"}
+      <section class="time">
+        <div class="time-input">
+          <input
+            bind:value={timeInput}
+            spellcheck="false"
+            placeholder="Timestamp or date, e.g. 1725120000 or 2026-08-31"
+            aria-label="Timestamp or date"
+          />
+          <button onclick={useCurrentTime}>Now</button>
+        </div>
+        {#if timeResult.valid}
+          <p class="hint">Read as {timeResult.unit}</p>
+          <div class="time-results">
+            <div class="result wide">
+              <span>Local</span>
+              <strong>{timeResult.local}</strong>
+              <small>{timeResult.relative}</small>
+            </div>
+            <div class="result">
+              <span>UTC</span>
+              <strong>{timeResult.utc}</strong>
+              <button onclick={() => copyText(timeResult.utc, "utc")} aria-label="Copy UTC"
+                ><svg viewBox="0 0 24 24"
+                  ><path d={iconPath(copied === "utc" ? "check" : "copy")} /></svg
+                ></button
               >
             </div>
-            <button
-              class="icon-button"
-              onclick={() => {
-                jsonInput = "";
-                jsonOutput = "";
-                jsonError = "";
-              }}
-              aria-label="Clear JSON"
-            >
-              <svg viewBox="0 0 24 24"><path d={iconPath("trash")} /></svg><span>Clear</span>
-            </button>
-          </div>
-          <div class="editor-grid">
-            <label class="editor-pane">
-              <span class="pane-label"><span>INPUT</span><em>{jsonInput.length} chars</em></span>
-              <textarea
-                bind:value={jsonInput}
-                oninput={() => formatJson(jsonFormat === "minified", true)}
-                spellcheck="false"
-                placeholder="Paste JSON here…"></textarea>
-            </label>
-            <div class="editor-pane output-pane">
-              <span class="pane-label"
-                ><span>OUTPUT</span><button
-                  onclick={() => copyText(jsonOutput, "json")}
-                  disabled={!jsonOutput}
-                  ><svg viewBox="0 0 24 24"
-                    ><path d={iconPath(copied === "json" ? "check" : "copy")} /></svg
-                  >{copied === "json" ? "Copied" : "Copy"}</button
-                ></span
+            <div class="result">
+              <span>Seconds</span>
+              <strong>{timeResult.seconds}</strong>
+              <button
+                onclick={() => copyText(String(timeResult.seconds), "seconds")}
+                aria-label="Copy seconds"
+                ><svg viewBox="0 0 24 24"
+                  ><path d={iconPath(copied === "seconds" ? "check" : "copy")} /></svg
+                ></button
               >
-              {#if jsonError}
-                <div class="error-message">
-                  <strong>Check your JSON</strong><span>{jsonError}</span>
-                </div>
-              {:else if jsonOutput}<pre>{jsonOutput}</pre>
-              {:else}<div class="empty-state">
-                  <svg viewBox="0 0 24 24"><path d={iconPath("arrow")} /></svg><span
-                    >Your formatted JSON appears here.</span
+            </div>
+            <div class="result">
+              <span>Milliseconds</span>
+              <strong>{timeResult.milliseconds}</strong>
+              <button
+                onclick={() => copyText(String(timeResult.milliseconds), "milliseconds")}
+                aria-label="Copy milliseconds"
+                ><svg viewBox="0 0 24 24"
+                  ><path d={iconPath(copied === "milliseconds" ? "check" : "copy")} /></svg
+                ></button
+              >
+            </div>
+          </div>
+        {:else}
+          <p class="error standalone">{timeResult.error}</p>
+        {/if}
+      </section>
+    {:else if activeTool === "packages"}
+      <section class="two-col">
+        <form class="panel form" onsubmit={addPackage}>
+          <label class="field">
+            <span>Name</span>
+            <input bind:value={packageName} placeholder="Coffee beans" autocomplete="off" />
+          </label>
+          <label class="field">
+            <span>Tracking URL</span>
+            <input
+              bind:value={trackingUrl}
+              type="text"
+              inputmode="url"
+              placeholder="https://…"
+              autocomplete="url"
+            />
+          </label>
+          <div class="divider"><span>or</span></div>
+          <div class="field-row carrier-row">
+            <label class="field">
+              <span>Carrier</span>
+              <select bind:value={carrier}>
+                {#each carriers as option}
+                  <option value={option.id}>{option.label}</option>
+                {/each}
+              </select>
+            </label>
+            <label class="field">
+              <span>Tracking number</span>
+              <input bind:value={trackingNumber} autocomplete="off" />
+            </label>
+          </div>
+          <label class="field">
+            <span>Expected delivery <em>optional</em></span>
+            <input bind:value={expectedDeliveryDate} type="date" />
+          </label>
+          {#if packageError}<p class="error standalone" role="alert">{packageError}</p>{/if}
+          <button class="submit" type="submit" disabled={packageSubmitting}>
+            {packageSubmitting ? "Adding…" : "Add package"}
+          </button>
+        </form>
+
+        <div class="list">
+          <div class="list-summary">
+            <strong>{packages.filter((item) => !item.delivered).length} on the way</strong>
+            <span>{packages.length} total</span>
+          </div>
+
+          {#if packagesLoading}
+            <p class="empty">Loading…</p>
+          {:else if packages.length}
+            {#each packages as item (item.id)}
+              <article class="card" class:done={item.delivered}>
+                <div class="card-head">
+                  <strong>{item.name}</strong>
+                  <span class="pill" class:complete={item.delivered}
+                    >{item.delivered ? "Delivered" : "In transit"}</span
                   >
-                </div>{/if}
+                </div>
+                <p class="meta">
+                  {carrierLabel(item)}{#if item.trackingNumber}<span>·</span><code
+                      >{item.trackingNumber}</code
+                    >{/if}
+                </p>
+                <div class="card-actions">
+                  <label class="inline-date">
+                    <span>Expected</span>
+                    <input
+                      type="date"
+                      value={item.expectedDeliveryDate ?? ""}
+                      aria-label={`Expected delivery date for ${item.name}`}
+                      disabled={updatingPackageId === item.id}
+                      onchange={(event) =>
+                        updateExpectedDeliveryDate(item.id, event.currentTarget.value)}
+                    />
+                  </label>
+                  <a href={item.trackingUrl} target="_blank" rel="noopener"
+                    >Track<svg viewBox="0 0 24 24"><path d={iconPath("external")} /></svg></a
+                  >
+                  {#if !item.delivered}
+                    <button onclick={() => markDelivered(item.id)}>Delivered</button>
+                  {/if}
+                  <button
+                    class="remove"
+                    onclick={() => removePackage(item.id)}
+                    aria-label={`Remove ${item.name}`}
+                  >
+                    <svg viewBox="0 0 24 24"><path d={iconPath("trash")} /></svg>
+                  </button>
+                </div>
+              </article>
+            {/each}
+          {:else}
+            <p class="empty">No packages yet.</p>
+          {/if}
+        </div>
+      </section>
+    {:else}
+      <section class="filament">
+        <div class="panel gcode">
+          <div class="gcode-head">
+            <div>
+              <strong>Subtract a print</strong>
+              <span>Upload G-code from PrusaSlicer, OrcaSlicer, Bambu Studio, or Cura.</span>
             </div>
+            <label class="upload">
+              <svg viewBox="0 0 24 24"><path d={iconPath("upload")} /></svg>
+              <span>{gcodeFilename || "Choose G-code"}</span>
+              <input type="file" accept=".gcode,.gco,.gc" onchange={readGcode} />
+            </label>
           </div>
-        </section>
-      {:else if activeTool === "base64"}
-        <section class="tool-panel">
-          <div class="panel-toolbar">
-            <div class="segmented-actions">
-              <button class:primary={base64Mode === "encode"} onclick={() => encodeBase64()}
-                >Encode</button
-              ><button class:primary={base64Mode === "decode"} onclick={() => decodeBase64()}
-                >Decode</button
+          {#if gcodeUses.length}
+            <div class="gcode-uses">
+              {#each gcodeUses as use, index}
+                <div class="gcode-use">
+                  <div>
+                    <strong>{use.label}</strong>
+                    <span>{formatWeight(use.grams)}{use.source === "weight" ? "" : " est."}</span>
+                  </div>
+                  <select
+                    value={filamentAssignments[index] ?? ""}
+                    aria-label={`Roll for ${use.label}`}
+                    onchange={(event) => assignFilament(index, event.currentTarget.value)}
+                  >
+                    <option value="">Choose a roll</option>
+                    {#each filamentRolls as roll}
+                      <option value={roll.id}
+                        >{rollLabel(roll)} · {formatWeight(roll.remainingWeight)}</option
+                      >
+                    {/each}
+                  </select>
+                </div>
+              {/each}
+              <button
+                class="submit accent"
+                onclick={applyGcodeUse}
+                disabled={applyingFilament || !filamentRolls.length}
+                >{applyingFilament ? "Subtracting…" : "Subtract from rolls"}</button
               >
             </div>
-            <button
-              class="icon-button"
-              onclick={() => {
-                base64Input = "";
-                base64Output = "";
-                base64Error = "";
-              }}
-              ><svg viewBox="0 0 24 24"><path d={iconPath("trash")} /></svg><span>Clear</span
-              ></button
-            >
+          {/if}
+        </div>
+
+        {#if lowFilamentRolls.length}
+          <div class="low" aria-label="Low filament rolls">
+            {#each lowFilamentRolls as roll (roll.id)}
+              <article>
+                <span class="swatch" style:background={roll.color || "#d9ed9d"}></span>
+                <strong>{rollLabel(roll)}</strong>
+                <span>{formatWeight(roll.remainingWeight)} left</span>
+                <button
+                  onclick={() => updateFilamentRoll(roll.id, { lowAlertDismissed: true })}
+                  aria-label={`Dismiss low filament alert for ${rollLabel(roll)}`}
+                >
+                  <svg viewBox="0 0 24 24"><path d={iconPath("close")} /></svg>
+                </button>
+              </article>
+            {/each}
           </div>
-          <div class="stacked-editors">
-            <label class="text-block"
-              ><span class="pane-label"><span>TEXT OR BASE64</span><em>UTF-8 supported</em></span
-              ><textarea
-                bind:value={base64Input}
-                oninput={() => (base64Mode === "encode" ? encodeBase64(true) : decodeBase64(true))}
-                spellcheck="false"
-                placeholder="Type or paste content here…"></textarea></label
-            >
-            <div class="flow-arrow">
-              <span><svg viewBox="0 0 24 24"><path d={iconPath("arrow")} /></svg></span>
-            </div>
-            <div class="text-block result-block">
-              <span class="pane-label"
-                ><span>RESULT</span><button
-                  onclick={() => copyText(base64Output, "base64")}
-                  disabled={!base64Output}
-                  ><svg viewBox="0 0 24 24"
-                    ><path d={iconPath(copied === "base64" ? "check" : "copy")} /></svg
-                  >{copied === "base64" ? "Copied" : "Copy"}</button
-                ></span
-              >
-              {#if base64Error}<div class="error-message">
-                  <strong>Conversion failed</strong><span>{base64Error}</span>
-                </div>{:else}<pre class:placeholder={!base64Output}>{base64Output ||
-                    "Your converted content appears here."}</pre>{/if}
-            </div>
-          </div>
-        </section>
-      {:else if activeTool === "time"}
-        <section class="tool-panel time-tool">
-          <div class="time-input-wrap">
-            <label for="time-input">TIMESTAMP OR DATE</label>
-            <div class="time-input-row">
-              <input
-                id="time-input"
-                bind:value={timeInput}
-                spellcheck="false"
-                placeholder="1725120000 or 2026-08-31"
-              /><button onclick={useCurrentTime}
-                ><svg viewBox="0 0 24 24"><path d={iconPath("clock")} /></svg>Use now</button
-              >
-            </div>
-            <p>
-              Seconds and milliseconds are detected automatically. Standard date text also works.
-            </p>
-          </div>
-          {#if timeResult.valid}
-            <div class="detection-banner">
-              <span class="status-dot"></span>Interpreted as <strong>{timeResult.unit}</strong>
-            </div>
-            <div class="time-results">
-              <div class="wide result-card">
-                <span>LOCAL TIME</span><strong>{timeResult.local}</strong><small
-                  >{timeResult.relative}</small
-                >
-              </div>
-              <div class="result-card">
-                <span>UTC / ISO 8601</span><strong>{timeResult.utc}</strong><button
-                  onclick={() => copyText(timeResult.utc, "utc")}
-                  aria-label="Copy UTC timestamp"
-                  ><svg viewBox="0 0 24 24"
-                    ><path d={iconPath(copied === "utc" ? "check" : "copy")} /></svg
-                  ></button
-                >
-              </div>
-              <div class="result-card">
-                <span>EPOCH SECONDS</span><strong>{timeResult.seconds}</strong><button
-                  onclick={() => copyText(String(timeResult.seconds), "seconds")}
-                  aria-label="Copy epoch seconds"
-                  ><svg viewBox="0 0 24 24"
-                    ><path d={iconPath(copied === "seconds" ? "check" : "copy")} /></svg
-                  ></button
-                >
-              </div>
-              <div class="result-card">
-                <span>EPOCH MILLISECONDS</span><strong>{timeResult.milliseconds}</strong><button
-                  onclick={() => copyText(String(timeResult.milliseconds), "milliseconds")}
-                  aria-label="Copy epoch milliseconds"
-                  ><svg viewBox="0 0 24 24"
-                    ><path d={iconPath(copied === "milliseconds" ? "check" : "copy")} /></svg
-                  ></button
-                >
-              </div>
-            </div>
-          {:else}<div class="error-message standalone">
-              <strong>No date to show</strong><span>{timeResult.error}</span>
-            </div>{/if}
-        </section>
-      {:else if activeTool === "packages"}
-        <section class="packages-layout">
-          <form class="tool-panel package-form" onsubmit={addPackage}>
-            <div class="package-form-heading">
-              <div>
-                <span>ADD A DELIVERY</span>
-                <strong>What is on the way?</strong>
-              </div>
-              <svg viewBox="0 0 24 24"><path d={iconPath("packages")} /></svg>
-            </div>
+        {/if}
 
-            <label class="package-field">
-              <span>PACKAGE NAME</span>
-              <input bind:value={packageName} placeholder="Coffee beans" autocomplete="off" />
+        <div class="two-col">
+          <form class="panel form" onsubmit={addFilamentRoll}>
+            <label class="field">
+              <span>Name <em>optional</em></span>
+              <input bind:value={filamentName} placeholder="Printer orange" autocomplete="off" />
             </label>
-
-            <label class="package-field">
-              <span>EXPECTED DELIVERY <em>OPTIONAL</em></span>
-              <input bind:value={expectedDeliveryDate} type="date" />
-            </label>
-
-            <label class="package-field">
-              <span>TRACKING URL</span>
-              <input
-                bind:value={trackingUrl}
-                type="text"
-                inputmode="url"
-                placeholder="https://…"
-                autocomplete="url"
-              />
-            </label>
-
-            <div class="form-divider"><span>OR USE A CARRIER</span></div>
-
-            <div class="carrier-row">
-              <label class="package-field carrier-field">
-                <span>CARRIER</span>
-                <select bind:value={carrier}>
-                  {#each carriers as option}
-                    <option value={option.id}>{option.label}</option>
-                  {/each}
+            <div class="field-row">
+              <label class="field">
+                <span>Material</span>
+                <select bind:value={filamentMaterial}>
+                  <option>PLA</option><option>PETG</option><option>ABS</option><option>ASA</option
+                  ><option>TPU</option><option>NYLON</option><option>PC</option><option>PVA</option
+                  ><option>OTHER</option>
                 </select>
               </label>
-              <label class="package-field number-field">
-                <span>TRACKING NUMBER</span>
-                <input bind:value={trackingNumber} placeholder="Enter number" autocomplete="off" />
+              <label class="field">
+                <span>Color <em>optional</em></span>
+                <input bind:value={filamentColor} placeholder="Orange or #f97316" />
               </label>
             </div>
-
-            {#if packageError}
-              <p class="package-error" role="alert">{packageError}</p>
-            {/if}
-
-            <button class="add-package-button" type="submit" disabled={packageSubmitting}>
-              <span>{packageSubmitting ? "Adding…" : "Add package"}</span><svg viewBox="0 0 24 24"
-                ><path d={iconPath("arrow")} /></svg
-              >
+            <div class="field-row">
+              <label class="field">
+                <span>Weight (g)</span>
+                <input bind:value={filamentWeight} type="number" min="1" step="0.1" />
+              </label>
+              <label class="field">
+                <span>Low at (g)</span>
+                <input bind:value={filamentLowThreshold} type="number" min="0" step="1" />
+              </label>
+            </div>
+            <button class="submit" type="submit" disabled={filamentSubmitting}>
+              {filamentSubmitting ? "Adding…" : "Add roll"}
             </button>
-            <p class="storage-note">
-              <span class="status-dot"></span>Saved in your local Omni database
-            </p>
           </form>
 
-          <div class="package-list-wrap">
-            <div class="package-list-heading">
-              <div>
-                <span>YOUR PACKAGES</span>
-                <strong>{packages.filter((item) => !item.delivered).length} on the way</strong>
-              </div>
-              <span>{packages.length} total</span>
+          <div class="list">
+            <div class="list-summary">
+              <strong>{filamentRolls.length} {filamentRolls.length === 1 ? "roll" : "rolls"}</strong
+              >
+              <span
+                >{formatWeight(
+                  filamentRolls.reduce((total, roll) => total + roll.remainingWeight, 0)
+                )} total</span
+              >
             </div>
 
-            {#if packagesLoading}
-              <div class="package-empty">
-                <span><svg viewBox="0 0 24 24"><path d={iconPath("clock")} /></svg></span>
-                <strong>Loading packages…</strong>
-              </div>
-            {:else if packages.length}
-              <div class="package-list">
-                {#each packages as item (item.id)}
-                  <article class:delivered={item.delivered} class="package-card">
-                    <div class="package-card-icon">
-                      <svg viewBox="0 0 24 24"
-                        ><path d={iconPath(item.delivered ? "check" : "packages")} /></svg
+            {#if filamentLoading}
+              <p class="empty">Loading…</p>
+            {:else if filamentRolls.length}
+              <div class="roll-grid">
+                {#each filamentRolls as roll (roll.id)}
+                  <article class="card roll">
+                    <div class="card-head">
+                      <span class="swatch" style:background={roll.color || "#d9ed9d"}></span>
+                      <strong>{rollLabel(roll)}</strong>
+                      <span class="pill">{roll.material}</span>
+                      <button
+                        class="remove"
+                        onclick={() => removeFilamentRoll(roll.id)}
+                        aria-label={`Remove ${rollLabel(roll)}`}
+                        ><svg viewBox="0 0 24 24"><path d={iconPath("trash")} /></svg></button
                       >
                     </div>
-                    <div class="package-card-copy">
-                      <div class="package-name-row">
-                        <strong>{item.name}</strong>
-                        <span class:complete={item.delivered}
-                          >{item.delivered ? "Delivered" : "In transit"}</span
-                        >
-                      </div>
-                      <p>
-                        {carrierLabel(item)}
-                        {#if item.trackingNumber}<span>·</span><code>{item.trackingNumber}</code
-                          >{/if}
-                      </p>
-                      <label class="expected-date-field">
-                        <span>Expected delivery</span>
-                        <input
-                          type="date"
-                          value={item.expectedDeliveryDate ?? ""}
-                          aria-label={`Expected delivery date for ${item.name}`}
-                          disabled={updatingPackageId === item.id}
-                          onchange={(event) =>
-                            updateExpectedDeliveryDate(item.id, event.currentTarget.value)}
-                        />
-                        {#if updatingPackageId === item.id}<em>Saving…</em>{/if}
-                      </label>
-                      <div class="package-actions">
-                        <a href={item.trackingUrl} target="_blank" rel="noopener">
-                          Track package<svg viewBox="0 0 24 24"
-                            ><path d={iconPath("external")} /></svg
-                          >
-                        </a>
-                        {#if !item.delivered}
-                          <button onclick={() => markDelivered(item.id)}>
-                            <svg viewBox="0 0 24 24"><path d={iconPath("check")} /></svg>Mark
-                            delivered
-                          </button>
-                        {/if}
-                        <button
-                          class="remove-package"
-                          onclick={() => removePackage(item.id)}
-                          aria-label={`Remove ${item.name}`}
-                        >
-                          <svg viewBox="0 0 24 24"><path d={iconPath("trash")} /></svg>
-                        </button>
-                      </div>
+                    <div class="meter">
+                      <span
+                        style:width={`${Math.min(100, (roll.remainingWeight / roll.initialWeight) * 100)}%`}
+                      ></span>
                     </div>
+                    <label class="weight">
+                      <input
+                        type="number"
+                        min="0"
+                        max={roll.initialWeight}
+                        step="0.1"
+                        value={roll.remainingWeight}
+                        aria-label={`Remaining weight for ${rollLabel(roll)}`}
+                        onchange={(event) => {
+                          const value = Number(event.currentTarget.value);
+                          if (Number.isFinite(value) && value >= 0) {
+                            void updateFilamentRoll(roll.id, { remainingWeight: value });
+                          }
+                        }}
+                      />
+                      <span>of {formatWeight(roll.initialWeight)}</span>
+                    </label>
                   </article>
                 {/each}
               </div>
             {:else}
-              <div class="package-empty">
-                <span><svg viewBox="0 0 24 24"><path d={iconPath("packages")} /></svg></span>
-                <strong>No packages yet</strong>
-                <p>Add a tracking link or carrier number to keep every delivery in one place.</p>
-              </div>
+              <p class="empty">No filament rolls yet.</p>
             {/if}
           </div>
-        </section>
-      {:else}
-        <section class="filament-tool">
-          <section class="tool-panel gcode-panel">
-            <div class="gcode-intro">
-              <div>
-                <span>USE FILAMENT</span>
-                <strong>Subtract a print</strong>
-                <p>Upload G-code from PrusaSlicer, OrcaSlicer, Bambu Studio, or Cura.</p>
-              </div>
-              <label class="gcode-upload">
-                <svg viewBox="0 0 24 24"><path d={iconPath("upload")} /></svg>
-                <span>{gcodeFilename || "Choose G-code"}</span>
-                <input type="file" accept=".gcode,.gco,.gc" onchange={readGcode} />
-              </label>
-            </div>
+        </div>
 
-            {#if gcodeUses.length}
-              <div class="gcode-uses">
-                {#each gcodeUses as use, index}
-                  <div class="gcode-use-row">
-                    <div>
-                      <strong>{use.label}</strong>
-                      <span
-                        >{formatWeight(use.grams)}{use.source === "weight"
-                          ? ""
-                          : " estimated"}</span
-                      >
-                    </div>
-                    <label>
-                      <span>SUBTRACT FROM</span>
-                      <select
-                        value={filamentAssignments[index] ?? ""}
-                        onchange={(event) => assignFilament(index, event.currentTarget.value)}
-                      >
-                        <option value="">Choose a roll</option>
-                        {#each filamentRolls as roll}
-                          <option value={roll.id}
-                            >{rollLabel(roll)} · {formatWeight(roll.remainingWeight)}</option
-                          >
-                        {/each}
-                      </select>
-                    </label>
-                  </div>
-                {/each}
-                <button
-                  class="apply-filament-button"
-                  onclick={applyGcodeUse}
-                  disabled={applyingFilament || !filamentRolls.length}
-                  >{applyingFilament ? "Subtracting…" : "Subtract from selected rolls"}</button
-                >
-              </div>
-            {/if}
-          </section>
-
-          {#if lowFilamentRolls.length}
-            <div class="low-filament-area" aria-label="Low filament rolls">
-              <div class="low-filament-heading">
-                <div>
-                  <span>RUNNING LOW</span>
-                  <strong
-                    >{lowFilamentRolls.length}
-                    {lowFilamentRolls.length === 1 ? "roll needs" : "rolls need"} attention</strong
-                  >
-                </div>
-                <svg viewBox="0 0 24 24"><path d={iconPath("filament")} /></svg>
-              </div>
-              <div class="low-filament-list">
-                {#each lowFilamentRolls as roll (roll.id)}
-                  <article>
-                    <span class="filament-swatch" style:background={roll.color || "#d9ed9d"}></span>
-                    <div>
-                      <strong>{rollLabel(roll)}</strong><span
-                        >{formatWeight(roll.remainingWeight)} remains</span
-                      >
-                    </div>
-                    <button
-                      onclick={() => updateFilamentRoll(roll.id, { lowAlertDismissed: true })}
-                      aria-label={`Dismiss low filament alert for ${rollLabel(roll)}`}
-                    >
-                      <svg viewBox="0 0 24 24"><path d={iconPath("close")} /></svg>
-                    </button>
-                  </article>
-                {/each}
-              </div>
-            </div>
-          {/if}
-
-          <div class="filament-layout">
-            <form class="tool-panel filament-form" onsubmit={addFilamentRoll}>
-              <div class="package-form-heading">
-                <div><span>ADD A ROLL</span><strong>Stock the shelf</strong></div>
-                <svg viewBox="0 0 24 24"><path d={iconPath("filament")} /></svg>
-              </div>
-
-              <label class="package-field">
-                <span>ROLL NAME <em>OPTIONAL</em></span>
-                <input bind:value={filamentName} placeholder="Printer orange" autocomplete="off" />
-              </label>
-              <div class="filament-form-row">
-                <label class="package-field">
-                  <span>MATERIAL</span>
-                  <select bind:value={filamentMaterial}>
-                    <option>PLA</option><option>PETG</option><option>ABS</option><option>ASA</option
-                    ><option>TPU</option><option>NYLON</option><option>PC</option><option
-                      >PVA</option
-                    ><option>OTHER</option>
-                  </select>
-                </label>
-                <label class="package-field">
-                  <span>COLOR <em>OPTIONAL</em></span>
-                  <input bind:value={filamentColor} placeholder="Orange or #f97316" />
-                </label>
-              </div>
-              <div class="filament-form-row">
-                <label class="package-field">
-                  <span>ROLL WEIGHT (G)</span>
-                  <input bind:value={filamentWeight} type="number" min="1" step="0.1" />
-                </label>
-                <label class="package-field">
-                  <span>LOW AT (G)</span>
-                  <input bind:value={filamentLowThreshold} type="number" min="0" step="1" />
-                </label>
-              </div>
-
-              <button class="add-package-button" type="submit" disabled={filamentSubmitting}>
-                <span>{filamentSubmitting ? "Adding…" : "Add roll"}</span>
-                <svg viewBox="0 0 24 24"><path d={iconPath("arrow")} /></svg>
-              </button>
-              <p class="storage-note">
-                <span class="status-dot"></span>Saved in your local Omni database
-              </p>
-            </form>
-
-            <div class="filament-inventory">
-              <div class="package-list-heading">
-                <div><span>YOUR FILAMENT</span><strong>{filamentRolls.length} rolls</strong></div>
-                <span
-                  >{formatWeight(
-                    filamentRolls.reduce((total, roll) => total + roll.remainingWeight, 0)
-                  )} total</span
-                >
-              </div>
-
-              {#if filamentLoading}
-                <div class="package-empty">
-                  <span><svg viewBox="0 0 24 24"><path d={iconPath("clock")} /></svg></span>
-                  <strong>Loading filament…</strong>
-                </div>
-              {:else if filamentRolls.length}
-                <div class="filament-roll-list">
-                  {#each filamentRolls as roll (roll.id)}
-                    <article class="filament-roll-card">
-                      <div
-                        class="filament-roll-visual"
-                        style:--roll-color={roll.color || "#d9ed9d"}
-                      >
-                        <span></span>
-                      </div>
-                      <div class="filament-roll-copy">
-                        <div class="filament-roll-title">
-                          <div><strong>{rollLabel(roll)}</strong><span>{roll.material}</span></div>
-                          <button
-                            onclick={() => removeFilamentRoll(roll.id)}
-                            aria-label={`Remove ${rollLabel(roll)}`}
-                            ><svg viewBox="0 0 24 24"><path d={iconPath("trash")} /></svg></button
-                          >
-                        </div>
-                        <div class="filament-meter">
-                          <span
-                            style:width={`${Math.min(100, (roll.remainingWeight / roll.initialWeight) * 100)}%`}
-                          ></span>
-                        </div>
-                        <div class="filament-weight-row">
-                          <label>
-                            <span>REMAINING</span>
-                            <input
-                              type="number"
-                              min="0"
-                              max={roll.initialWeight}
-                              step="0.1"
-                              value={roll.remainingWeight}
-                              aria-label={`Remaining weight for ${rollLabel(roll)}`}
-                              onchange={(event) => {
-                                const value = Number(event.currentTarget.value);
-                                if (Number.isFinite(value) && value >= 0) {
-                                  void updateFilamentRoll(roll.id, { remainingWeight: value });
-                                }
-                              }}
-                            /><em>g</em>
-                          </label>
-                          <div>
-                            <span>STARTED AT</span><strong
-                              >{formatWeight(roll.initialWeight)}</strong
-                            >
-                          </div>
-                        </div>
-                      </div>
-                    </article>
-                  {/each}
-                </div>
-              {:else}
-                <div class="package-empty">
-                  <span><svg viewBox="0 0 24 24"><path d={iconPath("filament")} /></svg></span>
-                  <strong>No filament rolls yet</strong>
-                  <p>Add a roll to track its material and remaining weight.</p>
-                </div>
-              {/if}
-            </div>
-          </div>
-
-          {#if filamentError}<p class="filament-error" role="alert">{filamentError}</p>{/if}
-        </section>
-      {/if}
-
-      <footer>
-        <span>OMNI / PERSONAL TOOLBOX</span><span>Built for the small jobs that slow you down.</span
-        >
-      </footer>
-    </main>
-  </div>
+        {#if filamentError}<p class="error standalone" role="alert">{filamentError}</p>{/if}
+      </section>
+    {/if}
+  </main>
 </div>

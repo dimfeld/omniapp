@@ -1,7 +1,7 @@
 {
   "name": "Omni — Your useful little toolbox",
   "short_name": "Omni",
-  "description": "A private toolbox for JSON, Base64, timestamps, package tracking, and filament management.",
+  "description": "A toolbox for JSON, Base64, timestamps, package tracking, and filament management.",
   "id": "./",
   "start_url": "./",
   "scope": "./",
