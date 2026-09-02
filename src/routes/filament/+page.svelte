@@ -2,6 +2,7 @@
   import { onMount } from "svelte";
   import Icon from "$lib/Icon.svelte";
   import ColorField from "$lib/ColorField.svelte";
+  import { colorLabel } from "$lib/filament/colors";
   import { parseGcodeFilament, type FilamentUse } from "$lib/filament/gcode";
 
   type FilamentRoll = {
@@ -163,7 +164,9 @@
   }
 
   function rollLabel(roll: FilamentRoll) {
-    return roll.name || `${roll.color ? `${roll.color} ` : ""}${roll.material}`;
+    if (roll.name) return roll.name;
+    const label = colorLabel(roll.color);
+    return label ? `${label} ${roll.material}` : roll.material;
   }
 
   function formatWeight(value: number) {
@@ -252,7 +255,7 @@
         </label>
         <div class="field">
           <span>Color <em>optional</em></span>
-          <ColorField bind:value={color} placeholder="Orange or #f97316" />
+          <ColorField bind:value={color} placeholder="Color" />
         </div>
       </div>
       <div class="field-row">
