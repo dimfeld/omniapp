@@ -30,6 +30,10 @@
   let gcodeFilename = $state("");
   let assignments = $state<Record<number, string>>({});
   let applying = $state(false);
+  let useAmounts = $state<Record<string, string>>({});
+  let useErrors = $state<Record<string, string>>({});
+  let recordingRollId = $state<string | null>(null);
+  let usePopoverStyles = $state<Record<string, string>>({});
   const lowRolls = $derived(
     rolls.filter((roll) => roll.remainingWeight <= roll.lowThreshold && !roll.lowAlertDismissed)
   );
@@ -163,6 +167,57 @@
     }
   }
 
+  function positionUsePopover(event: ToggleEvent, rollId: string) {
+    if (event.newState !== "open") return;
+    const trigger = document.getElementById(`record-use-${rollId}`);
+    if (!trigger) return;
+    const rect = trigger.getBoundingClientRect();
+    usePopoverStyles = {
+      ...usePopoverStyles,
+      [rollId]: `top: ${rect.bottom + 6}px; left: ${Math.min(rect.left, window.innerWidth - 236)}px;`,
+    };
+    useErrors = { ...useErrors, [rollId]: "" };
+  }
+
+  async function recordUse(event: SubmitEvent, roll: FilamentRoll) {
+    event.preventDefault();
+    const grams = Number(useAmounts[roll.id]);
+    if (!Number.isFinite(grams) || grams <= 0) {
+      useErrors = { ...useErrors, [roll.id]: "Enter a valid used amount." };
+      return;
+    }
+    if (grams > roll.remainingWeight) {
+      useErrors = { ...useErrors, [roll.id]: "The used amount is greater than the filament left." };
+      return;
+    }
+
+    recordingRollId = roll.id;
+    useErrors = { ...useErrors, [roll.id]: "" };
+    try {
+      const response = await fetch("/api/filament", {
+        method: "PATCH",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ consumptions: [{ id: roll.id, grams }] }),
+      });
+      if (!response.ok) {
+        const result = (await response.json()) as { message?: string };
+        throw new Error(result.message || "Could not record filament use.");
+      }
+      const updated = (await response.json()) as FilamentRoll[];
+      const nextRoll = updated[0];
+      if (nextRoll) rolls = rolls.map((item) => (item.id === nextRoll.id ? nextRoll : item));
+      useAmounts = { ...useAmounts, [roll.id]: "" };
+      document.getElementById(`use-popover-${roll.id}`)?.hidePopover();
+    } catch (cause) {
+      useErrors = {
+        ...useErrors,
+        [roll.id]: cause instanceof Error ? cause.message : "Could not record filament use.",
+      };
+    } finally {
+      recordingRollId = null;
+    }
+  }
+
   function rollLabel(roll: FilamentRoll) {
     if (roll.name) return roll.name;
     const label = colorLabel(roll.color);
@@ -290,13 +345,6 @@
                 <span class="swatch" style:background={roll.color || "#d9ed9d"}></span>
                 <strong>{rollLabel(roll)}</strong>
                 <span class="pill">{roll.material}</span>
-                <button
-                  class="remove"
-                  onclick={() => removeRoll(roll.id)}
-                  aria-label={`Remove ${rollLabel(roll)}`}
-                >
-                  <Icon name="trash" />
-                </button>
               </div>
               <div class="meter">
                 <span
@@ -319,6 +367,64 @@
                 />
                 <span>of {formatWeight(roll.initialWeight)}</span>
               </label>
+              <div class="card-actions">
+                <button
+                  id={`record-use-${roll.id}`}
+                  type="button"
+                  class="record-use"
+                  popovertarget={`use-popover-${roll.id}`}
+                  aria-label={`Record filament use for ${rollLabel(roll)}`}
+                >
+                  Record use
+                </button>
+                <div
+                  id={`use-popover-${roll.id}`}
+                  class="use-popover"
+                  popover="auto"
+                  aria-label={`Record filament use for ${rollLabel(roll)}`}
+                  style={usePopoverStyles[roll.id] ?? ""}
+                  ontoggle={(event) => positionUsePopover(event, roll.id)}
+                >
+                  <form onsubmit={(event) => void recordUse(event, roll)}>
+                    <strong>Record filament use</strong>
+                    <label class="field">
+                      <span>Used (g)</span>
+                      <input
+                        type="number"
+                        min="0.1"
+                        max={roll.remainingWeight}
+                        step="0.1"
+                        value={useAmounts[roll.id] ?? ""}
+                        oninput={(event) =>
+                          (useAmounts = { ...useAmounts, [roll.id]: event.currentTarget.value })}
+                      />
+                    </label>
+                    {#if useErrors[roll.id]}<p class="use-error" role="alert">
+                        {useErrors[roll.id]}
+                      </p>{/if}
+                    <div class="use-actions">
+                      <button
+                        type="button"
+                        class="cancel"
+                        onclick={() =>
+                          document.getElementById(`use-popover-${roll.id}`)?.hidePopover()}
+                      >
+                        Cancel
+                      </button>
+                      <button type="submit" class="submit" disabled={recordingRollId === roll.id}>
+                        {recordingRollId === roll.id ? "Recording…" : "Record use"}
+                      </button>
+                    </div>
+                  </form>
+                </div>
+                <button
+                  class="remove"
+                  onclick={() => removeRoll(roll.id)}
+                  aria-label={`Remove ${rollLabel(roll)}`}
+                >
+                  <Icon name="trash" />
+                </button>
+              </div>
             </article>
           {/each}
         </div>
@@ -649,6 +755,68 @@
     height: 30px;
     padding: 0 8px;
     font-family: var(--mono);
+    font-size: 12px;
+  }
+  .card-actions {
+    margin-top: 12px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .record-use,
+  .use-actions .cancel {
+    height: 30px;
+    padding: 0 10px;
+    border: 1px solid var(--line-strong);
+    border-radius: 6px;
+    background: white;
+    color: var(--ink);
+    font-size: 12px;
+    font-weight: 500;
+  }
+  .record-use:hover,
+  .use-actions .cancel:hover {
+    border-color: var(--muted);
+  }
+  .card-actions .remove {
+    margin-left: auto;
+  }
+  .use-popover {
+    position: fixed;
+    width: min(240px, calc(100vw - 24px));
+    margin: 0;
+    padding: 14px;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    background: white;
+    box-shadow: 0 8px 24px rgb(0 0 0 / 12%);
+  }
+  .use-popover form {
+    display: grid;
+    gap: 12px;
+  }
+  .use-popover strong {
+    font-size: 13px;
+  }
+  .use-popover .field {
+    gap: 6px;
+  }
+  .use-popover .field input {
+    height: 34px;
+  }
+  .use-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+  }
+  .use-actions .submit {
+    height: 30px;
+    padding: 0 10px;
+    font-size: 12px;
+  }
+  .use-error {
+    margin: -4px 0 0;
+    color: var(--red);
     font-size: 12px;
   }
   .error {
