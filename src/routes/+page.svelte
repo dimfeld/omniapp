@@ -723,7 +723,7 @@
         {/if}
       </section>
     {:else if activeTool === "packages"}
-      <section class="two-col">
+      <section class="two-col packages-layout">
         <form class="panel form" onsubmit={addPackage}>
           <label class="field">
             <span>Name</span>

@@ -841,9 +841,10 @@ pre.placeholder {
     min-height: 200px;
   }
   .two-col {
-    display: flex;
-    flex-direction: column-reverse;
     grid-template-columns: 1fr;
+  }
+  .packages-layout > .form {
+    order: 2;
   }
   .time-results {
     grid-template-columns: 1fr;
