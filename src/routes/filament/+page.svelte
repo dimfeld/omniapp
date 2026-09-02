@@ -177,6 +177,7 @@
       [rollId]: `top: ${rect.bottom + 6}px; left: ${Math.min(rect.left, window.innerWidth - 236)}px;`,
     };
     useErrors = { ...useErrors, [rollId]: "" };
+    requestAnimationFrame(() => document.getElementById(`use-amount-${rollId}`)?.focus());
   }
 
   async function recordUse(event: SubmitEvent, roll: FilamentRoll) {
@@ -390,6 +391,7 @@
                     <label class="field">
                       <span>Used (g)</span>
                       <input
+                        id={`use-amount-${roll.id}`}
                         type="number"
                         min="0.1"
                         max={roll.remainingWeight}
