@@ -1,6 +1,7 @@
 <script lang="ts">
   import { onMount } from "svelte";
   import Icon from "$lib/Icon.svelte";
+  import ColorField from "$lib/ColorField.svelte";
   import { parseGcodeFilament, type FilamentUse } from "$lib/filament/gcode";
 
   type FilamentRoll = {
@@ -249,10 +250,10 @@
             ><option>NYLON</option><option>PC</option><option>PVA</option><option>OTHER</option>
           </select>
         </label>
-        <label class="field">
+        <div class="field">
           <span>Color <em>optional</em></span>
-          <input bind:value={color} placeholder="Orange or #f97316" />
-        </label>
+          <ColorField bind:value={color} placeholder="Orange or #f97316" />
+        </div>
       </div>
       <div class="field-row">
         <label class="field">
@@ -515,7 +516,8 @@
     font-weight: 400;
   }
   .field input,
-  .field select {
+  .field select,
+  .field :global(.control input) {
     width: 100%;
     min-width: 0;
     height: 38px;
@@ -524,6 +526,7 @@
   }
   .field input:focus,
   .field select:focus,
+  .field :global(.control input:focus),
   .weight input:focus {
     border-color: var(--green);
     box-shadow: 0 0 0 3px rgb(35 95 69 / 10%);
