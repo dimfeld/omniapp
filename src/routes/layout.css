@@ -846,6 +846,9 @@ pre.placeholder {
   .packages-layout > .form {
     order: 2;
   }
+  .filament-layout > .form {
+    order: 2;
+  }
   .time-results {
     grid-template-columns: 1fr;
   }

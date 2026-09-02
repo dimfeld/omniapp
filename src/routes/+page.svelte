@@ -889,7 +889,7 @@
           </div>
         {/if}
 
-        <div class="two-col">
+        <div class="two-col filament-layout">
           <form class="panel form" onsubmit={addFilamentRoll}>
             <label class="field">
               <span>Name <em>optional</em></span>
