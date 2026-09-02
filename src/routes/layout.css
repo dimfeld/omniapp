@@ -654,6 +654,7 @@ pre.placeholder {
 .gcode-use > div {
   display: flex;
   align-items: baseline;
+  flex-wrap: wrap;
   gap: 8px;
 }
 .gcode-use strong {
@@ -663,6 +664,17 @@ pre.placeholder {
   color: var(--green);
   font-family: var(--mono);
   font-size: 12px;
+}
+.gcode-color {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+.gcode-color i {
+  width: 10px;
+  height: 10px;
+  border: 1px solid var(--line-strong);
+  border-radius: 50%;
 }
 .gcode-use select {
   width: 100%;

@@ -4,8 +4,30 @@ import { parseGcodeFilament } from "./gcode";
 describe("parseGcodeFilament", () => {
   it("reads multiple weight values", () => {
     expect(parseGcodeFilament("; filament used [g] = 12.34, 56.78")).toEqual([
-      { label: "Filament 1", grams: 12.3, source: "weight" },
-      { label: "Filament 2", grams: 56.8, source: "weight" },
+      { label: "Filament 1", grams: 12.3, source: "weight", type: null, color: null },
+      { label: "Filament 2", grams: 56.8, source: "weight", type: null, color: null },
+    ]);
+  });
+
+  it("reads per-filament type and color metadata", () => {
+    expect(
+      parseGcodeFilament(
+        "; filament_type = PLA; PETG\n; filament_colour = #FF0000; #00FF00\n; filament used [g] = 12, 24"
+      )
+    ).toEqual([
+      { label: "Filament 1", grams: 12, source: "weight", type: "PLA", color: "#FF0000" },
+      { label: "Filament 2", grams: 24, source: "weight", type: "PETG", color: "#00FF00" },
+    ]);
+  });
+
+  it("reuses one metadata value for multiple filaments", () => {
+    expect(
+      parseGcodeFilament(
+        "; filament_type = PLA\n; filament_colour = #FF0000\n; filament used [g] = 12, 24"
+      )
+    ).toEqual([
+      { label: "Filament 1", grams: 12, source: "weight", type: "PLA", color: "#FF0000" },
+      { label: "Filament 2", grams: 24, source: "weight", type: "PLA", color: "#FF0000" },
     ]);
   });
 
@@ -14,6 +36,8 @@ describe("parseGcodeFilament", () => {
       label: "Print filament",
       grams: 10.4,
       source: "volume",
+      type: null,
+      color: null,
     });
   });
 
@@ -23,6 +47,8 @@ describe("parseGcodeFilament", () => {
     );
     expect(result[0]?.grams).toBeCloseTo(3, 1);
     expect(result[0]?.source).toBe("length");
+    expect(result[0]?.type).toBe(null);
+    expect(result[0]?.color).toBe(null);
   });
 
   it("returns no values for unknown metadata", () => {

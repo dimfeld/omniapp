@@ -605,8 +605,7 @@
               bind:value={jsonInput}
               oninput={() => formatJson(jsonFormat === "minified", true)}
               spellcheck="false"
-              placeholder="Paste JSON…"
-            ></textarea>
+              placeholder="Paste JSON…"></textarea>
           </label>
           <div class="pane output">
             <span class="pane-label"
@@ -648,8 +647,7 @@
               bind:value={base64Input}
               oninput={() => (base64Mode === "encode" ? encodeBase64(true) : decodeBase64(true))}
               spellcheck="false"
-              placeholder="Type or paste…"
-            ></textarea>
+              placeholder="Type or paste…"></textarea>
           </label>
           <div class="pane output">
             <span class="pane-label"
@@ -842,6 +840,12 @@
                   <div>
                     <strong>{use.label}</strong>
                     <span>{formatWeight(use.grams)}{use.source === "weight" ? "" : " est."}</span>
+                    {#if use.type}<span>{use.type}</span>{/if}
+                    {#if use.color}
+                      <span class="gcode-color"
+                        ><i style:background={use.color}></i>{use.color}</span
+                      >
+                    {/if}
                   </div>
                   <select
                     value={filamentAssignments[index] ?? ""}
