@@ -1,3 +1,4 @@
+import type { Database } from "bun:sqlite";
 import { db } from "$lib/server/database";
 
 export type PackageRecord = {
@@ -39,19 +40,20 @@ const selectColumns = `
   id, name, carrier, tracking_number, tracking_url, expected_delivery_date, delivered, added_at
 `;
 
-export function listPackages() {
-  return db
+export function listPackages(database: Database = db) {
+  return database
     .query<PackageRow, []>(
       `SELECT ${selectColumns}
        FROM packages
+       WHERE delivered = 0
        ORDER BY expected_delivery_date IS NOT NULL, expected_delivery_date ASC, added_at DESC`
     )
     .all()
     .map(toRecord);
 }
 
-export function createPackage(item: PackageRecord) {
-  db.run(
+export function createPackage(item: PackageRecord, database: Database = db) {
+  database.run(
     `INSERT INTO packages
       (id, name, carrier, tracking_number, tracking_url, expected_delivery_date, delivered, added_at)
       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,

@@ -145,9 +145,7 @@
         body: JSON.stringify({ delivered: true }),
       });
       if (!response.ok) throw new Error();
-      packages = sortPackages(
-        packages.map((item) => (item.id === id ? { ...item, delivered: true } : item))
-      );
+      packages = packages.filter((item) => item.id !== id);
     } catch {
       error = "Could not mark the package as delivered.";
     }
