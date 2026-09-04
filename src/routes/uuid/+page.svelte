@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { onMount } from "svelte";
   import { v1, v4, v5, v7 } from "uuid";
   import Icon from "$lib/Icon.svelte";
   import { decodeUuid } from "$lib/uuid";
@@ -25,6 +26,8 @@
     namespaceType === "dns" ? v5.DNS : namespaceType === "url" ? v5.URL : customNamespace
   );
 
+  onMount(generate);
+
   function generate() {
     generationError = "";
     try {
@@ -46,6 +49,11 @@
     namespaceType = (event.currentTarget as HTMLSelectElement).value as typeof namespaceType;
   }
 
+  function selectVersion(version: UUIDVersion) {
+    selectedVersion = version;
+    generate();
+  }
+
   async function copyGenerated() {
     if (!generatedUuid) return;
     await navigator.clipboard.writeText(generatedUuid);
@@ -63,7 +71,7 @@
           type="button"
           role="tab"
           aria-selected={selectedVersion === version.id}
-          onclick={() => (selectedVersion = version.id)}
+          onclick={() => selectVersion(version.id)}
         >
           <strong>{version.label}</strong>
           <span>{version.description}</span>
