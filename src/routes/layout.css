@@ -97,7 +97,12 @@ p {
   display: grid;
   gap: 2px;
 }
-.rail-tools a {
+.mobile-tools {
+  display: none;
+}
+.rail-tools a,
+.mobile-tools a,
+.tools-toggle {
   padding: 8px 12px;
   display: flex;
   align-items: center;
@@ -108,13 +113,52 @@ p {
   font-size: 13px;
   font-weight: 500;
 }
-.rail-tools a:hover {
+.rail-tools a:hover,
+.mobile-tools a:hover,
+.tools-toggle:hover {
   background: #ebe9e1;
   color: var(--ink);
 }
-.rail-tools a.active {
+.rail-tools a.active,
+.mobile-tools a.active,
+.tools-toggle.active {
   background: var(--ink);
   color: white;
+}
+.tools-toggle {
+  border: 0;
+  font: inherit;
+}
+.tool-menu {
+  width: min(260px, calc(100vw - 16px));
+  margin: 0;
+  padding: 8px;
+  position: fixed;
+  inset: 58px 8px auto auto;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius);
+  background: var(--paper);
+  box-shadow: 0 12px 30px rgb(27 36 31 / 14%);
+}
+.tool-menu::backdrop {
+  background: transparent;
+}
+.tool-menu-title {
+  padding: 6px 10px 8px;
+  color: var(--faint);
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+.tool-menu a {
+  border-radius: 6px;
+  color: var(--muted);
+  text-decoration: none;
+}
+.tool-menu a.active {
+  background: var(--green-soft);
+  color: var(--green);
 }
 main {
   min-width: 0;
@@ -135,14 +179,18 @@ main {
     border-bottom: 1px solid var(--line);
     background: var(--paper);
   }
-  .brand {
-    margin: 0 4px 12px;
-  }
   .rail-tools {
+    display: none;
+  }
+  .mobile-tools {
     display: flex;
     gap: 0;
   }
-  .rail-tools a {
+  .brand {
+    margin: 0 4px 12px;
+  }
+  .mobile-tools a,
+  .tools-toggle {
     padding: 8px 8px 12px;
     flex-direction: column;
     gap: 4px;
@@ -150,13 +198,16 @@ main {
     border-radius: 0;
     font-size: 11px;
   }
-  .rail-tools a span {
+  .mobile-tools a span,
+  .tools-toggle span {
     white-space: nowrap;
   }
-  .rail-tools a:hover {
+  .mobile-tools a:hover,
+  .tools-toggle:hover {
     background: transparent;
   }
-  .rail-tools a.active {
+  .mobile-tools a.active,
+  .tools-toggle.active {
     border-bottom-color: var(--green);
     background: transparent;
     color: var(--green);

@@ -7,16 +7,24 @@
   let { children } = $props();
 
   const tools: { id: IconName; label: string; path: string }[] = [
+    { id: "packages", label: "Packages", path: "/packages" },
+    { id: "filament", label: "Filament", path: "/filament" },
     { id: "json", label: "JSON", path: "/json" },
     { id: "base64", label: "Base64", path: "/base64" },
     { id: "regex", label: "Regex", path: "/regex" },
+    { id: "color", label: "Color", path: "/color" },
+    { id: "uuid", label: "UUID", path: "/uuid" },
+    { id: "hash", label: "Hash", path: "/hash" },
+    { id: "url", label: "URL", path: "/url" },
+    { id: "html", label: "HTML", path: "/html" },
     { id: "time", label: "Date & time", path: "/time" },
-    { id: "packages", label: "Packages", path: "/packages" },
-    { id: "filament", label: "Filament", path: "/filament" },
   ];
+  const mobilePrimary = tools.slice(0, 2);
+  const mobileSecondary = tools.slice(2);
+  const defaultTool = tools.find((tool) => tool.id === "json") ?? tools[0];
 
   const activeTool = $derived(
-    tools.find((tool) => page.url.pathname === `${base}${tool.path}`) ?? tools[0]
+    tools.find((tool) => page.url.pathname === `${base}${tool.path}`) ?? defaultTool
   );
 
   function selectToolByShortcut(event: KeyboardEvent) {
@@ -24,7 +32,7 @@
     const tool = tools[Number(event.key) - 1];
     if (!tool) return;
     event.preventDefault();
-    document.getElementById(`tool-${tool.id}`)?.click();
+    document.getElementById(`desktop-tool-${tool.id}`)?.click();
   }
 </script>
 
@@ -46,7 +54,7 @@
     <div class="rail-tools">
       {#each tools as tool, index}
         <a
-          id={`tool-${tool.id}`}
+          id={`desktop-tool-${tool.id}`}
           class:active={activeTool.id === tool.id}
           href={`${base}${tool.path}`}
           aria-current={activeTool.id === tool.id ? "page" : undefined}
@@ -56,6 +64,42 @@
           <span>{tool.label}</span>
         </a>
       {/each}
+    </div>
+    <div class="mobile-tools">
+      {#each mobilePrimary as tool}
+        <a
+          class:active={activeTool.id === tool.id}
+          href={`${base}${tool.path}`}
+          aria-current={activeTool.id === tool.id ? "page" : undefined}
+        >
+          <Icon name={tool.id} />
+          <span>{tool.label}</span>
+        </a>
+      {/each}
+      <button
+        class:active={mobileSecondary.some((tool) => activeTool.id === tool.id)}
+        class="tools-toggle"
+        type="button"
+        popovertarget="mobile-tool-menu"
+        aria-controls="mobile-tool-menu"
+        aria-haspopup="menu"
+      >
+        <Icon name="tools" />
+        <span>Tools</span>
+      </button>
+      <div id="mobile-tool-menu" class="tool-menu" popover="auto">
+        <div class="tool-menu-title">Tools</div>
+        {#each mobileSecondary as tool}
+          <a
+            class:active={activeTool.id === tool.id}
+            href={`${base}${tool.path}`}
+            aria-current={activeTool.id === tool.id ? "page" : undefined}
+          >
+            <Icon name={tool.id} />
+            <span>{tool.label}</span>
+          </a>
+        {/each}
+      </div>
     </div>
   </nav>
 
