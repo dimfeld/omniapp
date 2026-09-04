@@ -54,7 +54,6 @@
   let error = $state("");
   let loading = $state(true);
   let submitting = $state(false);
-  let updatingPackageId = $state("");
 
   onMount(() => void loadPackages());
 
@@ -153,7 +152,6 @@
 
   async function updateExpectedDeliveryDate(id: string, value: string) {
     error = "";
-    updatingPackageId = id;
     try {
       const response = await fetch(`/api/packages/${encodeURIComponent(id)}`, {
         method: "PATCH",
@@ -169,8 +167,6 @@
     } catch {
       error = "Could not update the expected delivery date.";
       packages = [...packages];
-    } finally {
-      updatingPackageId = "";
     }
   }
 
@@ -258,7 +254,6 @@
                 type="date"
                 value={item.expectedDeliveryDate ?? ""}
                 aria-label={`Expected delivery date for ${item.name}`}
-                disabled={updatingPackageId === item.id}
                 onchange={(event) => updateExpectedDeliveryDate(item.id, event.currentTarget.value)}
               />
             </label>
