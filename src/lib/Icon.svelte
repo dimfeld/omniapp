@@ -2,6 +2,7 @@
   export type IconName =
     | "json"
     | "base64"
+    | "regex"
     | "time"
     | "packages"
     | "filament"
@@ -17,6 +18,8 @@
   const paths: Record<IconName, string> = {
     json: "M8 3H6a2 2 0 0 0-2 2v4a2 2 0 0 1-2 2 2 2 0 0 1 2 2v4a2 2 0 0 0 2 2h2M16 3h2a2 2 0 0 1 2 2v4a2 2 0 0 0 2 2 2 2 0 0 0-2 2v4a2 2 0 0 1-2 2h-2",
     base64: "M6 5h4a2 2 0 0 1 0 4H6V5Zm0 4h5a2.5 2.5 0 0 1 0 5H6V9Zm10-4v9m0-4h5l-3.5-5v9",
+    regex:
+      "M5 7V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v2M5 17v2a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-2M8 12h8M11 9l-3 3 3 3",
     time: "M12 8v5l3 2M3.05 11a9 9 0 1 0 .5-3M3 4v4h4",
     copy: "M8 8h11v11H8zM5 16H4V5h11v1",
     check: "m5 12 4 4L19 6",

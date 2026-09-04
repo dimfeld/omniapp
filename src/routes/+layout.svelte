@@ -9,6 +9,7 @@
   const tools: { id: IconName; label: string; path: string }[] = [
     { id: "json", label: "JSON", path: "/json" },
     { id: "base64", label: "Base64", path: "/base64" },
+    { id: "regex", label: "Regex", path: "/regex" },
     { id: "time", label: "Date & time", path: "/time" },
     { id: "packages", label: "Packages", path: "/packages" },
     { id: "filament", label: "Filament", path: "/filament" },
