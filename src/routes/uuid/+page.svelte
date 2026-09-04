@@ -13,7 +13,7 @@
   ];
 
   let selectedVersion = $state<UUIDVersion>("v4");
-  let name = $state("example.com");
+  let name = $state("");
   let namespaceType = $state<"dns" | "url" | "custom">("dns");
   let customNamespace = $state("");
   let generatedUuid = $state("");

@@ -7,8 +7,8 @@
     type ColorConversion,
   } from "$lib/colors";
 
-  let input = $state("#e85d04");
-  let pickerColor = $state("#e85d04");
+  let input = $state("");
+  let pickerColor = $state("#000000");
   let copied = $state("");
   const parsed = $derived(parseColor(input));
   const conversions = $derived<ColorConversion[]>(parsed ? getColorConversions(parsed) : []);

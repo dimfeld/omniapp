@@ -12,8 +12,8 @@
     { flag: "y", label: "Sticky" },
   ];
 
-  let pattern = $state(String.raw`(?<word>\w+)`);
-  let text = $state("Try matching words in this sentence.");
+  let pattern = $state("");
+  let text = $state("");
   let enabledFlags = $state<Record<RegexFlag, boolean>>({
     d: false,
     g: true,
@@ -30,7 +30,7 @@
       .map(({ flag }) => flag)
       .join("")
   );
-  const result = $derived(testRegex(pattern, text, flags));
+  const result = $derived(pattern ? testRegex(pattern, text, flags) : null);
 
   function toggleFlag(flag: RegexFlag, checked: boolean) {
     enabledFlags[flag] = checked;
@@ -97,14 +97,19 @@
   <div class="results-head">
     <div>
       <strong>Results</strong>
-      {#if result.valid}
+      {#if result?.valid}
         <span>{result.matches.length} {result.matches.length === 1 ? "match" : "matches"}</span>
       {/if}
     </div>
     <code>/{pattern}/{flags}</code>
   </div>
 
-  {#if !result.valid}
+  {#if !result}
+    <div class="empty">
+      <strong>Ready to test</strong>
+      <span>Enter a regular expression and some match text.</span>
+    </div>
+  {:else if !result.valid}
     <div class="error" role="alert">
       <strong>Invalid regular expression</strong>
       <span>{result.error}</span>
