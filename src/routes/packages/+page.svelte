@@ -2,16 +2,10 @@
   import { onMount } from "svelte";
   import Icon from "$lib/Icon.svelte";
   import { inferTrackingDetails, type Carrier } from "$lib/packages/tracking";
+  import type { PackageRecord, PackageTrackingLocation } from "$lib/packages/types";
 
-  type Package = {
-    id: string;
-    name: string;
+  type Package = Omit<PackageRecord, "carrier"> & {
     carrier: Carrier | "custom";
-    trackingNumber: string;
-    trackingUrl: string;
-    expectedDeliveryDate: string | null;
-    delivered: boolean;
-    addedAt: number;
   };
 
   const carriers: { id: Carrier; label: string; buildUrl: (number: string) => string }[] = [
@@ -251,6 +245,40 @@
     if (item.carrier === "custom") return "Tracking link";
     return carriers.find((option) => option.id === item.carrier)?.label ?? item.carrier;
   }
+
+  function trackingStatus(item: Package) {
+    if (item.delivered) return "Delivered";
+    if (item.tracking?.status) return item.tracking.status;
+    if (item.tracking?.error) return "Tracking unavailable";
+    return item.carrier === "fedex" ? "Tracking pending" : "In transit";
+  }
+
+  function formatTimestamp(value: string | null | undefined) {
+    if (!value) return "";
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return value;
+    return new Intl.DateTimeFormat(undefined, {
+      dateStyle: "medium",
+      timeStyle: "short",
+    }).format(date);
+  }
+
+  function formatCheckedAt(value: number) {
+    return formatTimestamp(new Date(value).toISOString());
+  }
+
+  function formatLocation(location: PackageTrackingLocation | null) {
+    if (!location) return "";
+    const cityRegion = [location.city, location.stateOrProvinceCode].filter(Boolean).join(", ");
+    return [cityRegion, location.postalCode, location.countryCode].filter(Boolean).join(" ");
+  }
+
+  function formatDeliveryWindow(start: string | null, end: string | null) {
+    if (!start && !end) return "";
+    if (start === end || !end) return formatTimestamp(start);
+    if (!start) return formatTimestamp(end);
+    return `${formatTimestamp(start)} – ${formatTimestamp(end)}`;
+  }
 </script>
 
 <section class="packages-layout">
@@ -294,18 +322,22 @@
 
   <div class="list">
     <div class="list-summary">
-      <strong>{packages.filter((item) => !item.delivered).length} on the way</strong>
+      <strong
+        >{packages.filter((item) => !item.delivered && !item.tracking?.complete).length} on the way</strong
+      >
       <span>{packages.length} total</span>
     </div>
     {#if loading}
       <p class="empty">Loading…</p>
     {:else if packages.length}
       {#each packages as item (item.id)}
-        <article class="card" class:done={item.delivered}>
+        <article class="card" class:done={item.delivered || item.tracking?.complete}>
           <div class="card-head">
             <strong>{item.name}</strong>
-            <span class="pill" class:complete={item.delivered}
-              >{item.delivered ? "Delivered" : "In transit"}</span
+            <span
+              class="pill"
+              class:complete={item.delivered || item.tracking?.complete}
+              class:warning={item.tracking?.error}>{trackingStatus(item)}</span
             >
           </div>
           <p class="meta">
@@ -313,6 +345,21 @@
                 >{item.trackingNumber}</code
               >{/if}
           </p>
+          {#if item.tracking?.events[0]}
+            <p class="latest-event">
+              <span>{item.tracking.events[0].description}</span>
+              {#if formatLocation(item.tracking.events[0].location)}
+                <span>·</span><span>{formatLocation(item.tracking.events[0].location)}</span>
+              {/if}
+              {#if item.tracking.events[0].occurredAt}
+                <span>·</span><time datetime={item.tracking.events[0].occurredAt}
+                  >{formatTimestamp(item.tracking.events[0].occurredAt)}</time
+                >
+              {/if}
+            </p>
+          {:else if item.tracking?.description}
+            <p class="latest-event">{item.tracking.description}</p>
+          {/if}
           <div class="card-actions">
             <label class="inline-date">
               <span>Expected</span>
@@ -326,6 +373,9 @@
             <a href={item.trackingUrl} target="_blank" rel="noopener"
               >Track<Icon name="external" /></a
             >
+            {#if item.carrier === "fedex"}
+              <button popovertarget={`tracking-${item.id}`}>Details</button>
+            {/if}
             {#if !item.delivered}<button onclick={() => markDelivered(item.id)}>Delivered</button
               >{/if}
             <div class="icon-actions">
@@ -346,6 +396,119 @@
             </div>
           </div>
         </article>
+        {#if item.carrier === "fedex"}
+          <div id={`tracking-${item.id}`} class="tracking-popover" popover="auto">
+            <header class="tracking-header">
+              <div>
+                <span>{carrierLabel(item)} tracking</span>
+                <strong>{item.name}</strong>
+              </div>
+              <button
+                class="popover-close"
+                popovertarget={`tracking-${item.id}`}
+                popovertargetaction="hide"
+                aria-label="Close tracking details"
+              >
+                <Icon name="close" />
+              </button>
+            </header>
+
+            <section class="tracking-current">
+              <span
+                class="pill"
+                class:complete={item.tracking?.complete}
+                class:warning={item.tracking?.error}>{trackingStatus(item)}</span
+              >
+              {#if item.tracking?.description}<p>{item.tracking.description}</p>{/if}
+              {#if item.tracking?.error}<p class="tracking-error">{item.tracking.error}</p>{/if}
+            </section>
+
+            {#if item.tracking}
+              <dl class="tracking-summary">
+                {#if formatDeliveryWindow(item.tracking.estimatedDeliveryStart, item.tracking.estimatedDeliveryEnd)}
+                  <div>
+                    <dt>FedEx estimate</dt>
+                    <dd>
+                      {formatDeliveryWindow(
+                        item.tracking.estimatedDeliveryStart,
+                        item.tracking.estimatedDeliveryEnd
+                      )}
+                    </dd>
+                  </div>
+                {/if}
+                {#if item.tracking.details.service}
+                  <div>
+                    <dt>Service</dt>
+                    <dd>{item.tracking.details.service}</dd>
+                  </div>
+                {/if}
+                {#if item.tracking.details.packageType}
+                  <div>
+                    <dt>Package</dt>
+                    <dd>{item.tracking.details.packageType}</dd>
+                  </div>
+                {/if}
+                {#if item.tracking.details.signedBy}
+                  <div>
+                    <dt>Received by</dt>
+                    <dd>{item.tracking.details.signedBy}</dd>
+                  </div>
+                {/if}
+                <div>
+                  <dt>Last checked</dt>
+                  <dd>{formatCheckedAt(item.tracking.lastCheckedAt)}</dd>
+                </div>
+              </dl>
+
+              {#if item.tracking.details.origin || item.tracking.details.destination}
+                <div class="tracking-route">
+                  <div>
+                    <span>From</span>
+                    <strong
+                      >{formatLocation(item.tracking.details.origin) || "Not available"}</strong
+                    >
+                  </div>
+                  <span aria-hidden="true">→</span>
+                  <div>
+                    <span>To</span>
+                    <strong
+                      >{formatLocation(item.tracking.details.destination) ||
+                        "Not available"}</strong
+                    >
+                  </div>
+                </div>
+              {/if}
+
+              <div class="tracking-history">
+                <h2>Tracking history</h2>
+                {#if item.tracking.events.length}
+                  <ol>
+                    {#each item.tracking.events as trackingEvent}
+                      <li>
+                        <span class="timeline-dot"></span>
+                        <div>
+                          <strong>{trackingEvent.description}</strong>
+                          {#if formatLocation(trackingEvent.location)}
+                            <span>{formatLocation(trackingEvent.location)}</span>
+                          {/if}
+                          {#if trackingEvent.occurredAt}
+                            <time datetime={trackingEvent.occurredAt}
+                              >{formatTimestamp(trackingEvent.occurredAt)}</time
+                            >
+                          {/if}
+                        </div>
+                      </li>
+                    {/each}
+                  </ol>
+                {:else}
+                  <p class="no-history">FedEx has not reported a scan yet.</p>
+                {/if}
+              </div>
+            {:else}
+              <p class="no-history">Tracking details will appear after the first FedEx check.</p>
+            {/if}
+          </div>
+        {/if}
       {/each}
     {:else}
       <p class="empty">No packages yet.</p>
@@ -549,6 +712,10 @@
     background: #e6e5dd;
     color: var(--muted);
   }
+  .pill.warning {
+    background: var(--amber-soft);
+    color: var(--amber);
+  }
   .meta {
     margin-top: 2px;
     display: flex;
@@ -563,6 +730,14 @@
     text-overflow: ellipsis;
     white-space: nowrap;
     font-family: var(--mono);
+  }
+  .latest-event {
+    margin-top: 8px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 5px;
+    color: var(--muted);
+    font-size: 12px;
   }
   .card-actions {
     margin-top: 12px;
@@ -683,6 +858,185 @@
     color: var(--faint);
     text-align: center;
   }
+  .tracking-popover {
+    width: min(560px, calc(100vw - 24px));
+    max-height: calc(100vh - 32px);
+    margin: auto;
+    padding: 0;
+    overflow: auto;
+    border: 1px solid var(--line-strong);
+    border-radius: 10px;
+    background: var(--paper);
+    color: var(--ink);
+    box-shadow: 0 20px 60px rgb(27 36 31 / 22%);
+  }
+  .tracking-popover::backdrop {
+    background: rgb(27 36 31 / 18%);
+  }
+  .tracking-header {
+    padding: 18px 20px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    border-bottom: 1px solid var(--line);
+  }
+  .tracking-header > div {
+    min-width: 0;
+    flex: 1;
+    display: grid;
+  }
+  .tracking-header span,
+  .tracking-route span {
+    color: var(--faint);
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+  }
+  .tracking-header strong {
+    overflow: hidden;
+    font-size: 17px;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .popover-close {
+    width: 32px;
+    height: 32px;
+    padding: 0;
+    display: grid;
+    place-items: center;
+    border: 0;
+    border-radius: 6px;
+    background: transparent;
+    color: var(--muted);
+  }
+  .popover-close:hover {
+    background: #ebe9e1;
+    color: var(--ink);
+  }
+  .tracking-current {
+    padding: 18px 20px 0;
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+  .tracking-current p {
+    color: var(--muted);
+    font-size: 13px;
+  }
+  .tracking-current .tracking-error {
+    width: 100%;
+    color: var(--red);
+  }
+  .tracking-summary {
+    margin: 16px 20px 0;
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    border: 1px solid var(--line);
+    border-radius: 7px;
+  }
+  .tracking-summary div {
+    min-width: 0;
+    padding: 10px 12px;
+  }
+  .tracking-summary div:nth-child(even) {
+    border-left: 1px solid var(--line);
+  }
+  .tracking-summary div:nth-child(n + 3) {
+    border-top: 1px solid var(--line);
+  }
+  .tracking-summary dt {
+    color: var(--faint);
+    font-size: 11px;
+  }
+  .tracking-summary dd {
+    margin: 2px 0 0;
+    overflow-wrap: anywhere;
+    font-size: 12px;
+    font-weight: 500;
+  }
+  .tracking-route {
+    margin: 16px 20px 0;
+    padding: 12px;
+    display: grid;
+    grid-template-columns: 1fr auto 1fr;
+    align-items: center;
+    gap: 12px;
+    border-radius: 7px;
+    background: var(--green-soft);
+  }
+  .tracking-route > span {
+    color: var(--green);
+    font-size: 16px;
+  }
+  .tracking-route div {
+    display: grid;
+  }
+  .tracking-route div:last-child {
+    text-align: right;
+  }
+  .tracking-route strong {
+    font-size: 12px;
+    font-weight: 600;
+  }
+  .tracking-history {
+    padding: 18px 20px 20px;
+  }
+  .tracking-history h2 {
+    margin: 0 0 12px;
+    font-size: 13px;
+    font-weight: 600;
+  }
+  .tracking-history ol {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+  .tracking-history li {
+    min-height: 54px;
+    position: relative;
+    display: grid;
+    grid-template-columns: 12px 1fr;
+    gap: 10px;
+  }
+  .tracking-history li:not(:last-child)::before {
+    width: 1px;
+    position: absolute;
+    top: 12px;
+    bottom: 0;
+    left: 5px;
+    content: "";
+    background: var(--line-strong);
+  }
+  .timeline-dot {
+    width: 9px;
+    height: 9px;
+    margin-top: 4px;
+    position: relative;
+    z-index: 1;
+    border: 2px solid var(--paper);
+    border-radius: 50%;
+    background: var(--green);
+    box-shadow: 0 0 0 1px var(--green);
+  }
+  .tracking-history li div {
+    padding-bottom: 14px;
+    display: grid;
+  }
+  .tracking-history li strong {
+    font-size: 12px;
+    font-weight: 600;
+  }
+  .tracking-history li span,
+  .tracking-history li time,
+  .no-history {
+    color: var(--muted);
+    font-size: 12px;
+  }
+  .no-history {
+    padding: 20px;
+  }
   @media (max-width: 820px) {
     .packages-layout {
       grid-template-columns: 1fr;
@@ -695,6 +1049,15 @@
     .field-row,
     .carrier-row {
       grid-template-columns: 1fr;
+    }
+    .tracking-summary {
+      grid-template-columns: 1fr;
+    }
+    .tracking-summary div:nth-child(even) {
+      border-left: 0;
+    }
+    .tracking-summary div:nth-child(n + 2) {
+      border-top: 1px solid var(--line);
     }
   }
 </style>

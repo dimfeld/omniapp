@@ -1,9 +1,12 @@
+import { refreshFedexTracking } from "$lib/server/package-tracking";
 import {
   allowedCarriers,
   createPackage,
+  getPackage,
   listPackages,
   normalizeExpectedDeliveryDate,
   normalizeTrackingUrl,
+  type NewPackageRecord,
   type PackageRecord,
 } from "$lib/server/packages";
 import { json } from "@sveltejs/kit";
@@ -29,7 +32,7 @@ export const POST: RequestHandler = async ({ request }) => {
     return json({ message: "Invalid tracking URL." }, { status: 400 });
   }
 
-  const item: PackageRecord = {
+  const item: NewPackageRecord = {
     id: crypto.randomUUID(),
     name,
     carrier,
@@ -40,5 +43,10 @@ export const POST: RequestHandler = async ({ request }) => {
     addedAt: Date.now(),
   };
 
-  return json(createPackage(item), { status: 201 });
+  createPackage(item);
+  if (item.carrier === "fedex" && item.trackingNumber) {
+    await refreshFedexTracking({ ids: [item.id] });
+  }
+
+  return json(getPackage(item.id), { status: 201 });
 };

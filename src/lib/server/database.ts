@@ -48,6 +48,38 @@ const migrations: Migration[] = [
       "CREATE INDEX filament_rolls_material ON filament_rolls(material, added_at DESC)",
     ],
   },
+  {
+    version: 4,
+    name: "add_package_tracking",
+    statements: [
+      `CREATE TABLE package_tracking (
+        package_id TEXT PRIMARY KEY REFERENCES packages(id) ON DELETE CASCADE,
+        status_code TEXT NOT NULL DEFAULT '',
+        status TEXT NOT NULL DEFAULT '',
+        description TEXT NOT NULL DEFAULT '',
+        estimated_delivery_start TEXT,
+        estimated_delivery_end TEXT,
+        last_updated_at TEXT,
+        last_checked_at INTEGER NOT NULL,
+        complete INTEGER NOT NULL DEFAULT 0 CHECK (complete IN (0, 1)),
+        error TEXT,
+        details_json TEXT NOT NULL DEFAULT '{}',
+        response_json TEXT NOT NULL DEFAULT '{}'
+      )`,
+      `CREATE TABLE package_tracking_events (
+        package_id TEXT NOT NULL REFERENCES packages(id) ON DELETE CASCADE,
+        event_id TEXT NOT NULL,
+        occurred_at TEXT NOT NULL DEFAULT '',
+        code TEXT NOT NULL DEFAULT '',
+        description TEXT NOT NULL DEFAULT '',
+        location_json TEXT,
+        details_json TEXT NOT NULL DEFAULT '{}',
+        PRIMARY KEY (package_id, event_id)
+      )`,
+      "CREATE INDEX package_tracking_due ON package_tracking(complete, last_checked_at)",
+      "CREATE INDEX package_tracking_events_time ON package_tracking_events(package_id, occurred_at DESC)",
+    ],
+  },
 ];
 
 export function migrateDatabase(database: Database, availableMigrations = migrations) {
@@ -59,16 +91,19 @@ export function migrateDatabase(database: Database, availableMigrations = migrat
     )`
   );
 
-  const appliedRows = database
-    .query<{ version: number }, []>("SELECT version FROM schema_migrations ORDER BY version")
-    .all();
-  const applied = new Set(appliedRows.map((row) => row.version));
-
   for (const migration of availableMigrations) {
-    if (applied.has(migration.version)) continue;
-
     database.run("BEGIN IMMEDIATE");
     try {
+      const applied = database
+        .query<{ version: number }, [number]>(
+          "SELECT version FROM schema_migrations WHERE version = ?"
+        )
+        .get(migration.version);
+      if (applied) {
+        database.run("COMMIT");
+        continue;
+      }
+
       for (const statement of migration.statements) database.run(statement);
       database.run("INSERT INTO schema_migrations (version, name) VALUES (?, ?)", [
         migration.version,

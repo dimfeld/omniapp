@@ -51,3 +51,14 @@ version to the `migrations` array in `src/lib/server/database.ts`. Each migratio
 transaction. The `schema_migrations` table records each applied version.
 
 Run the production server with Bun because the package tracker uses `bun:sqlite`.
+
+## FedEx package tracking
+
+Set `FEDEX_CLIENT_ID` and `FEDEX_CLIENT_SECRET` to enable FedEx tracking. The server checks new
+FedEx packages immediately and checks active packages again each hour.
+
+The production API base is `https://apis.fedex.com`. For FedEx sandbox credentials, set:
+
+```sh
+FEDEX_API_BASE_URL=https://apis-sandbox.fedex.com
+```

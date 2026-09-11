@@ -28,10 +28,23 @@ describe("database migrations", () => {
       )
       .get();
 
-    expect(migrationCount?.count).toBe(3);
+    const trackingTable = database
+      .query<{ name: string }, []>(
+        "SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'package_tracking'"
+      )
+      .get();
+    const trackingEventsTable = database
+      .query<{ name: string }, []>(
+        "SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'package_tracking_events'"
+      )
+      .get();
+
+    expect(migrationCount?.count).toBe(4);
     expect(packageTable?.name).toBe("packages");
     expect(expectedDateColumn?.name).toBe("expected_delivery_date");
     expect(filamentTable?.name).toBe("filament_rolls");
+    expect(trackingTable?.name).toBe("package_tracking");
+    expect(trackingEventsTable?.name).toBe("package_tracking_events");
     database.close();
   });
 
