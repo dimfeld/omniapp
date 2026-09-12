@@ -55,6 +55,15 @@
   let loading = $state(true);
   let submitting = $state(false);
 
+  let editDialog = $state<HTMLDialogElement | null>(null);
+  let editing = $state<Package | null>(null);
+  let editName = $state("");
+  let editCarrier = $state<Carrier | "custom">("usps");
+  let editTrackingNumber = $state("");
+  let editTrackingUrl = $state("");
+  let editError = $state("");
+  let savingEdit = $state(false);
+
   onMount(() => void loadPackages());
 
   async function loadPackages() {
@@ -170,6 +179,63 @@
     }
   }
 
+  function openEdit(item: Package) {
+    editing = item;
+    editName = item.name;
+    editCarrier = item.carrier;
+    editTrackingNumber = item.trackingNumber;
+    editTrackingUrl = item.trackingUrl;
+    editError = "";
+    editDialog?.showModal();
+  }
+
+  async function saveEdit(event: SubmitEvent) {
+    event.preventDefault();
+    const item = editing;
+    if (!item) return;
+
+    const name = editName.trim();
+    const number = editTrackingNumber.trim();
+    const enteredUrl = editTrackingUrl.trim();
+    const carrierOption = carriers.find((option) => option.id === editCarrier);
+    if (!name) return void (editError = "Enter a package name.");
+    if (!enteredUrl && !(carrierOption && number)) {
+      editError = "Enter a tracking URL or a carrier tracking number.";
+      return;
+    }
+
+    let url: string;
+    try {
+      url = enteredUrl ? normalizedUrl(enteredUrl) : carrierOption!.buildUrl(number);
+    } catch {
+      editError = "Enter a valid tracking URL.";
+      return;
+    }
+
+    editError = "";
+    savingEdit = true;
+    try {
+      const response = await fetch(`/api/packages/${encodeURIComponent(item.id)}`, {
+        method: "PATCH",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          name,
+          carrier: editCarrier,
+          trackingNumber: number,
+          trackingUrl: url,
+        }),
+      });
+      if (!response.ok) throw new Error();
+      const updated = (await response.json()) as Package;
+      packages = sortPackages(packages.map((entry) => (entry.id === item.id ? updated : entry)));
+      editDialog?.close();
+    } catch {
+      editError = "Could not save the package. Try again.";
+    } finally {
+      savingEdit = false;
+    }
+  }
+
   async function removePackage(id: string) {
     error = "";
     try {
@@ -262,13 +328,22 @@
             >
             {#if !item.delivered}<button onclick={() => markDelivered(item.id)}>Delivered</button
               >{/if}
-            <button
-              class="remove"
-              onclick={() => removePackage(item.id)}
-              aria-label={`Remove ${item.name}`}
-            >
-              <Icon name="trash" />
-            </button>
+            <div class="icon-actions">
+              <button
+                class="icon-button"
+                onclick={() => openEdit(item)}
+                aria-label={`Edit ${item.name}`}
+              >
+                <Icon name="pencil" />
+              </button>
+              <button
+                class="icon-button remove"
+                onclick={() => removePackage(item.id)}
+                aria-label={`Remove ${item.name}`}
+              >
+                <Icon name="trash" />
+              </button>
+            </div>
           </div>
         </article>
       {/each}
@@ -277,6 +352,52 @@
     {/if}
   </div>
 </section>
+
+<dialog class="edit-dialog" bind:this={editDialog} onclose={() => (editing = null)}>
+  {#if editing}
+    <form class="edit-form" onsubmit={saveEdit}>
+      <div class="edit-head">
+        <strong>Edit package</strong>
+        <button
+          type="button"
+          class="icon-button"
+          onclick={() => editDialog?.close()}
+          aria-label="Close"
+        >
+          <Icon name="close" />
+        </button>
+      </div>
+      <label class="field">
+        <span>Name</span>
+        <input bind:value={editName} autocomplete="off" />
+      </label>
+      <div class="field-row carrier-row">
+        <label class="field">
+          <span>Carrier</span>
+          <select bind:value={editCarrier}>
+            {#each carriers as option}<option value={option.id}>{option.label}</option>{/each}
+            <option value="custom">Tracking link</option>
+          </select>
+        </label>
+        <label class="field">
+          <span>Tracking number</span>
+          <input bind:value={editTrackingNumber} autocomplete="off" />
+        </label>
+      </div>
+      <label class="field">
+        <span>Tracking URL <em>clear to rebuild from the carrier</em></span>
+        <input bind:value={editTrackingUrl} type="text" inputmode="url" autocomplete="url" />
+      </label>
+      {#if editError}<p class="error" role="alert">{editError}</p>{/if}
+      <div class="edit-actions">
+        <button type="button" class="cancel" onclick={() => editDialog?.close()}>Cancel</button>
+        <button class="submit" type="submit" disabled={savingEdit}>
+          {savingEdit ? "Saving…" : "Save changes"}
+        </button>
+      </div>
+    </form>
+  {/if}
+</dialog>
 
 <style>
   .packages-layout {
@@ -485,21 +606,77 @@
     padding: 0 6px;
     font-size: 12px;
   }
-  .card-actions .remove {
+  .icon-actions {
+    margin-left: auto;
+    display: flex;
+    align-items: center;
+    gap: 2px;
+  }
+  .icon-button {
     width: 28px;
     height: 28px;
-    margin-left: auto;
     padding: 0;
     display: grid;
     place-items: center;
     border: 0;
+    border-radius: 6px;
     background: transparent;
     color: var(--faint);
   }
-  .card-actions .remove:hover {
+  .icon-button:hover {
     border-color: transparent;
+    background: var(--line);
+    color: var(--ink);
+  }
+  .icon-button.remove:hover {
     background: var(--red-soft);
     color: var(--red);
+  }
+  .edit-dialog {
+    width: min(420px, calc(100vw - 32px));
+    /* Tailwind's preflight resets the margin that centers a modal dialog. */
+    margin: auto;
+    padding: 0;
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    background: var(--paper);
+    color: var(--ink);
+  }
+  .edit-dialog::backdrop {
+    background: rgb(27 36 31 / 35%);
+  }
+  .edit-form {
+    padding: 18px 20px 20px;
+    display: grid;
+    gap: 14px;
+  }
+  .edit-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+  }
+  .edit-head strong {
+    font-size: 15px;
+    font-weight: 600;
+  }
+  .edit-actions {
+    margin-top: 2px;
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+  }
+  .edit-actions .cancel {
+    height: 38px;
+    padding: 0 16px;
+    border: 1px solid var(--line-strong);
+    border-radius: 6px;
+    background: white;
+    font-size: 13px;
+    font-weight: 500;
+  }
+  .edit-actions .cancel:hover {
+    border-color: var(--muted);
   }
   .empty {
     padding: 40px 0;

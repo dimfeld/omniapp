@@ -15,6 +15,7 @@
     | "copy"
     | "check"
     | "trash"
+    | "pencil"
     | "external"
     | "upload"
     | "close";
@@ -38,6 +39,7 @@
     copy: "M8 8h11v11H8zM5 16H4V5h11v1",
     check: "m5 12 4 4L19 6",
     trash: "M4 7h16M9 7V4h6v3m3 0-1 13H7L6 7m4 4v5m4-5v5",
+    pencil: "M4 20h4L19 9a2.83 2.83 0 0 0-4-4L4 16v4Zm10-13 4 4",
     packages: "M21 8.5 12 13 3 8.5M12 13v9M4.5 7.75 12 4l7.5 3.75v8.5L12 20l-7.5-3.75v-8.5Z",
     external: "M14 4h6v6m0-6-9 9M18 13v7H4V6h7",
     filament:

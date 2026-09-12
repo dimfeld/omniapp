@@ -1,46 +1,76 @@
 import {
+  allowedCarriers,
   deletePackage,
-  markPackageDelivered,
-  updatePackageExpectedDeliveryDate,
+  normalizeExpectedDeliveryDate,
+  normalizeTrackingUrl,
+  updatePackage,
+  type PackageUpdate,
 } from "$lib/server/packages";
 import { json } from "@sveltejs/kit";
 import type { RequestHandler } from "./$types";
 
-const datePattern = /^\d{4}-\d{2}-\d{2}$/;
-
 export const PATCH: RequestHandler = async ({ params, request }) => {
   const body = (await request.json()) as {
+    name?: string;
+    carrier?: string;
+    trackingNumber?: string;
+    trackingUrl?: string;
     delivered?: boolean;
     expectedDeliveryDate?: string | null;
   };
 
-  if (body.delivered === undefined && body.expectedDeliveryDate === undefined) {
-    return json({ message: "No package update was provided." }, { status: 400 });
+  const update: PackageUpdate = {};
+
+  if (body.name !== undefined) {
+    const name = typeof body.name === "string" ? body.name.trim() : "";
+    if (!name) return json({ message: "Invalid package name." }, { status: 400 });
+    update.name = name;
   }
 
-  let found = true;
-  if (body.delivered !== undefined) {
-    if (body.delivered !== true) {
-      return json({ message: "Invalid delivery status." }, { status: 400 });
+  if (body.carrier !== undefined) {
+    const carrier = typeof body.carrier === "string" ? body.carrier.trim() : "";
+    if (!allowedCarriers.has(carrier))
+      return json({ message: "Invalid carrier." }, { status: 400 });
+    update.carrier = carrier;
+  }
+
+  if (body.trackingNumber !== undefined) {
+    if (typeof body.trackingNumber !== "string") {
+      return json({ message: "Invalid tracking number." }, { status: 400 });
     }
-    found = markPackageDelivered(params.id);
+    update.trackingNumber = body.trackingNumber.trim();
+  }
+
+  if (body.trackingUrl !== undefined) {
+    const trackingUrl =
+      typeof body.trackingUrl === "string"
+        ? normalizeTrackingUrl(body.trackingUrl.trim())
+        : undefined;
+    if (!trackingUrl) return json({ message: "Invalid tracking URL." }, { status: 400 });
+    update.trackingUrl = trackingUrl;
+  }
+
+  if (body.delivered !== undefined) {
+    if (body.delivered !== true)
+      return json({ message: "Invalid delivery status." }, { status: 400 });
+    update.delivered = true;
   }
 
   if (body.expectedDeliveryDate !== undefined) {
-    if (body.expectedDeliveryDate !== null && typeof body.expectedDeliveryDate !== "string") {
+    const expectedDeliveryDate = normalizeExpectedDeliveryDate(body.expectedDeliveryDate);
+    if (expectedDeliveryDate === undefined) {
       return json({ message: "Invalid expected delivery date." }, { status: 400 });
     }
-    const date = body.expectedDeliveryDate?.trim() || null;
-    if (date && !datePattern.test(date)) {
-      return json({ message: "Invalid expected delivery date." }, { status: 400 });
-    }
-    found = updatePackageExpectedDeliveryDate(params.id, date) && found;
+    update.expectedDeliveryDate = expectedDeliveryDate;
   }
 
-  if (!found) {
-    return json({ message: "Package not found." }, { status: 404 });
+  if (!Object.keys(update).length) {
+    return json({ message: "No package update was provided." }, { status: 400 });
   }
-  return json({ updated: true });
+
+  const updated = updatePackage(params.id, update);
+  if (!updated) return json({ message: "Package not found." }, { status: 404 });
+  return json(updated);
 };
 
 export const DELETE: RequestHandler = ({ params }) => {
