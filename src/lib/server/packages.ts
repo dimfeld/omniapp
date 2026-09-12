@@ -40,6 +40,30 @@ const selectColumns = `
   id, name, carrier, tracking_number, tracking_url, expected_delivery_date, delivered, added_at
 `;
 
+export const allowedCarriers = new Set(["usps", "ups", "fedex", "dhl", "ontrac", "custom"]);
+
+const datePattern = /^\d{4}-\d{2}-\d{2}$/;
+
+/** Returns the normalized date, or `undefined` when the value is not a valid `YYYY-MM-DD` date. */
+export function normalizeExpectedDeliveryDate(value: string | null | undefined) {
+  if (value !== null && value !== undefined && typeof value !== "string") return undefined;
+  const date = value?.trim() || null;
+  if (date && !datePattern.test(date)) return undefined;
+  return date;
+}
+
+/** Returns the normalized URL, or `undefined` when the value is not a valid http(s) URL. */
+export function normalizeTrackingUrl(value: string) {
+  let parsed: URL;
+  try {
+    parsed = new URL(value);
+  } catch {
+    return undefined;
+  }
+  if (!["http:", "https:"].includes(parsed.protocol)) return undefined;
+  return parsed.toString();
+}
+
 export function listPackages(database: Database = db) {
   return database
     .query<PackageRow, []>(
@@ -71,17 +95,51 @@ export function createPackage(item: PackageRecord, database: Database = db) {
   return item;
 }
 
-export function markPackageDelivered(id: string) {
-  const result = db.run("UPDATE packages SET delivered = 1 WHERE id = ?", [id]);
-  return result.changes > 0;
-}
+export type PackageUpdate = {
+  name?: string;
+  carrier?: string;
+  trackingNumber?: string;
+  trackingUrl?: string;
+  expectedDeliveryDate?: string | null;
+  delivered?: boolean;
+};
 
-export function updatePackageExpectedDeliveryDate(id: string, expectedDeliveryDate: string | null) {
-  const result = db.run("UPDATE packages SET expected_delivery_date = ? WHERE id = ?", [
-    expectedDeliveryDate,
-    id,
-  ]);
-  return result.changes > 0;
+export function updatePackage(id: string, update: PackageUpdate, database: Database = db) {
+  const current = database
+    .query<PackageRow, [string]>(`SELECT ${selectColumns} FROM packages WHERE id = ?`)
+    .get(id);
+  if (!current) return null;
+
+  const next: PackageRow = {
+    ...current,
+    name: update.name ?? current.name,
+    carrier: update.carrier ?? current.carrier,
+    tracking_number: update.trackingNumber ?? current.tracking_number,
+    tracking_url: update.trackingUrl ?? current.tracking_url,
+    expected_delivery_date:
+      update.expectedDeliveryDate === undefined
+        ? current.expected_delivery_date
+        : update.expectedDeliveryDate,
+    delivered: update.delivered === undefined ? current.delivered : update.delivered ? 1 : 0,
+  };
+
+  database.run(
+    `UPDATE packages
+     SET name = ?, carrier = ?, tracking_number = ?, tracking_url = ?,
+         expected_delivery_date = ?, delivered = ?
+     WHERE id = ?`,
+    [
+      next.name,
+      next.carrier,
+      next.tracking_number,
+      next.tracking_url,
+      next.expected_delivery_date,
+      next.delivered,
+      id,
+    ]
+  );
+
+  return toRecord(next);
 }
 
 export function deletePackage(id: string) {

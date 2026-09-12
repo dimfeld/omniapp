@@ -1,40 +1,31 @@
-import { createPackage, listPackages, type PackageRecord } from "$lib/server/packages";
+import {
+  allowedCarriers,
+  createPackage,
+  listPackages,
+  normalizeExpectedDeliveryDate,
+  normalizeTrackingUrl,
+  type PackageRecord,
+} from "$lib/server/packages";
 import { json } from "@sveltejs/kit";
 import type { RequestHandler } from "./$types";
-
-const allowedCarriers = new Set(["usps", "ups", "fedex", "dhl", "ontrac", "custom"]);
-const datePattern = /^\d{4}-\d{2}-\d{2}$/;
 
 export const GET: RequestHandler = () => json(listPackages());
 
 export const POST: RequestHandler = async ({ request }) => {
   const body = (await request.json()) as Partial<PackageRecord>;
   const name = body.name?.trim();
-  const trackingUrl = body.trackingUrl?.trim();
   const carrier = body.carrier?.trim();
-  if (
-    body.expectedDeliveryDate !== undefined &&
-    body.expectedDeliveryDate !== null &&
-    typeof body.expectedDeliveryDate !== "string"
-  ) {
-    return json({ message: "Invalid expected delivery date." }, { status: 400 });
-  }
-  const expectedDeliveryDate = body.expectedDeliveryDate?.trim() || null;
+  const expectedDeliveryDate = normalizeExpectedDeliveryDate(body.expectedDeliveryDate);
 
-  if (!name || !trackingUrl || !carrier || !allowedCarriers.has(carrier)) {
+  if (!name || !body.trackingUrl?.trim() || !carrier || !allowedCarriers.has(carrier)) {
     return json({ message: "Invalid package details." }, { status: 400 });
   }
-  if (expectedDeliveryDate && !datePattern.test(expectedDeliveryDate)) {
+  if (expectedDeliveryDate === undefined) {
     return json({ message: "Invalid expected delivery date." }, { status: 400 });
   }
 
-  let parsedUrl: URL;
-  try {
-    parsedUrl = new URL(trackingUrl);
-  } catch {
-    return json({ message: "Invalid tracking URL." }, { status: 400 });
-  }
-  if (!["http:", "https:"].includes(parsedUrl.protocol)) {
+  const trackingUrl = normalizeTrackingUrl(body.trackingUrl.trim());
+  if (!trackingUrl) {
     return json({ message: "Invalid tracking URL." }, { status: 400 });
   }
 
@@ -43,7 +34,7 @@ export const POST: RequestHandler = async ({ request }) => {
     name,
     carrier,
     trackingNumber: body.trackingNumber?.trim() ?? "",
-    trackingUrl: parsedUrl.toString(),
+    trackingUrl,
     expectedDeliveryDate,
     delivered: false,
     addedAt: Date.now(),
