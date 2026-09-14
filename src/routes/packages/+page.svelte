@@ -747,7 +747,7 @@
     gap: 8px;
   }
   .card-actions a,
-  .card-actions button {
+  .card-actions > button:not(.icon-button) {
     height: 30px;
     padding: 0 10px;
     display: inline-flex;
@@ -762,7 +762,7 @@
     font-weight: 500;
   }
   .card-actions a:hover,
-  .card-actions button:hover {
+  .card-actions > button:not(.icon-button):hover {
     border-color: var(--muted);
   }
   .card-actions :global(svg) {
