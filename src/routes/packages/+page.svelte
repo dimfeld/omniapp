@@ -861,6 +861,12 @@
   .tracking-popover {
     width: min(560px, calc(100vw - 24px));
     max-height: calc(100vh - 32px);
+    inset-block: max(16px, calc(env(safe-area-inset-top, 0px) + 16px))
+      max(16px, calc(env(safe-area-inset-bottom, 0px) + 16px));
+    max-height: calc(
+      100dvh - max(16px, calc(env(safe-area-inset-top, 0px) + 16px)) -
+        max(16px, calc(env(safe-area-inset-bottom, 0px) + 16px))
+    );
     margin: auto;
     padding: 0;
     overflow: auto;
