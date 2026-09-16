@@ -1,21 +1,23 @@
 <script lang="ts">
   import Icon from "$lib/Icon.svelte";
+  import { formatJson as formatInput, type OutputSyntax } from "$lib/json";
 
   let input = $state("");
   let output = $state("");
   let error = $state("");
   let format = $state<"pretty" | "minified">("pretty");
   let copied = $state(false);
+  let syntax = $state<OutputSyntax>("json");
 
   function formatJson(minified = format === "minified", live = false) {
     format = minified ? "minified" : "pretty";
     error = "";
     try {
-      output = JSON.stringify(JSON.parse(input), null, minified ? 0 : 2);
+      output = input.trim() ? formatInput(input, syntax, minified) : "";
     } catch (cause) {
       if (live) return;
       output = "";
-      error = cause instanceof Error ? cause.message : "That JSON is not valid.";
+      error = cause instanceof Error ? cause.message : "The input is not valid.";
     }
   }
 
@@ -32,6 +34,13 @@
     <div class="actions">
       <button class="primary" onclick={() => formatJson(false)}>Prettify</button>
       <button onclick={() => formatJson(true)}>Minify</button>
+      <label class="syntax">
+        Output
+        <select bind:value={syntax} onchange={() => formatJson()}>
+          <option value="json">JSON</option>
+          <option value="javascript">JavaScript</option>
+        </select>
+      </label>
     </div>
     <button
       class="ghost"
@@ -49,7 +58,11 @@
         bind:value={input}
         oninput={() => formatJson(format === "minified", true)}
         spellcheck="false"
-        placeholder="Paste JSON…"></textarea>
+        placeholder="Paste JSON or a JavaScript object…"></textarea>
+      <p class="input-help">
+        Accepts comments, single quotes, unquoted keys, and trailing commas. Code expressions are
+        not supported.
+      </p>
     </label>
     <div class="pane output">
       <span class="pane-label"
@@ -60,7 +73,7 @@
       {#if error}
         <p class="error">{error}</p>
       {:else}
-        <pre class:placeholder={!output}>{output || "Formatted JSON appears here."}</pre>
+        <pre class:placeholder={!output}>{output || "Formatted output appears here."}</pre>
       {/if}
     </div>
   </div>
@@ -82,7 +95,29 @@
   }
   .actions {
     display: flex;
+    flex-wrap: wrap;
+    align-items: center;
     gap: 6px;
+  }
+  .syntax {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    color: var(--muted);
+    font-size: 13px;
+  }
+  select {
+    height: 34px;
+    border: 1px solid var(--line-strong);
+    border-radius: 6px;
+    background: white;
+    color: var(--ink);
+  }
+  .input-help {
+    margin: 0;
+    padding: 0 16px 16px;
+    color: var(--muted);
+    font-size: 12px;
   }
   .actions button {
     height: 34px;
