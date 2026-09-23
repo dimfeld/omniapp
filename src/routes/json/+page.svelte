@@ -1,9 +1,11 @@
 <script lang="ts">
   import Icon from "$lib/Icon.svelte";
-  import { formatJson as formatInput, type OutputSyntax } from "$lib/json";
+  import JsonTreeNode from "$lib/JsonTreeNode.svelte";
+  import { formatJsonValue, parseJson, type OutputSyntax } from "$lib/json";
 
   let input = $state("");
   let output = $state("");
+  let value = $state<unknown>(undefined);
   let error = $state("");
   let format = $state<"pretty" | "minified">("pretty");
   let copied = $state(false);
@@ -13,10 +15,12 @@
     format = minified ? "minified" : "pretty";
     error = "";
     try {
-      output = input.trim() ? formatInput(input, syntax, minified) : "";
+      value = input.trim() ? parseJson(input) : undefined;
+      output = value === undefined ? "" : formatJsonValue(value, syntax, minified);
     } catch (cause) {
       if (live) return;
       output = "";
+      value = undefined;
       error = cause instanceof Error ? cause.message : "The input is not valid.";
     }
   }
@@ -47,6 +51,7 @@
       onclick={() => {
         input = "";
         output = "";
+        value = undefined;
         error = "";
       }}>Clear</button
     >
@@ -72,6 +77,12 @@
       >
       {#if error}
         <p class="error">{error}</p>
+      {:else if format === "pretty" && output}
+        <div class="tree" aria-label="Formatted JSON tree">
+          {#key value}
+            <JsonTreeNode {value} {syntax} />
+          {/key}
+        </div>
       {:else}
         <pre class:placeholder={!output}>{output || "Formatted output appears here."}</pre>
       {/if}
@@ -217,6 +228,14 @@
     font-size: 13px;
     line-height: 1.6;
   }
+  .tree {
+    padding: 4px 16px 16px;
+    flex: 1;
+    overflow: auto;
+    font-family: var(--mono);
+    font-size: 13px;
+    line-height: 1.6;
+  }
   pre.placeholder {
     color: var(--faint);
     font-family: inherit;
@@ -240,7 +259,8 @@
       border-left: 0;
     }
     textarea,
-    pre {
+    pre,
+    .tree {
       min-height: 200px;
     }
   }
