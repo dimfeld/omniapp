@@ -52,13 +52,27 @@
     <div class="line" style:--depth={depth}>{array ? "]" : "}"}{comma}</div>
   {/if}
 {:else if typeof value === "string"}
-  <pre class="line string-line" style:--depth={depth}>{prefix}<button
-      class="string-toggle"
-      aria-label={`${stringExpanded ? "Show escaped" : "Show parsed"} string at ${label}`}
-      aria-pressed={stringExpanded}
-      onclick={() => (stringExpanded = !stringExpanded)}
-      >{stringExpanded ? value : formatJsonPrimitive(value, syntax)}</button
-    >{comma}</pre>
+  {#if stringExpanded}
+    <div>
+      <div class="line parsed-heading" style:--depth={depth}>
+        {prefix}<button
+          class="show-escaped"
+          aria-label={`Show escaped string at ${label}`}
+          onclick={() => (stringExpanded = false)}>Escaped</button
+        >
+      </div>
+      <pre class="line parsed-value" style:--depth={depth + 1}>{value}</pre>
+      {#if comma}<div class="line" style:--depth={depth}>{comma}</div>{/if}
+    </div>
+  {:else}
+    <div class="line" style:--depth={depth}>
+      {prefix}<button
+        class="string-toggle"
+        aria-label={`Show parsed string at ${label}`}
+        onclick={() => (stringExpanded = true)}>{formatJsonPrimitive(value, syntax)}</button
+      >{comma}
+    </div>
+  {/if}
 {:else}
   <div class="line" style:--depth={depth}>{prefix}{formatJsonPrimitive(value, syntax)}{comma}</div>
 {/if}
@@ -90,9 +104,28 @@
     outline: 2px solid var(--green);
     outline-offset: -2px;
   }
-  .string-line {
+  .parsed-value {
     margin: 0;
     font: inherit;
+  }
+  .parsed-heading {
+    padding-right: 7ch;
+  }
+  .show-escaped {
+    position: absolute;
+    top: 0;
+    right: 0;
+    padding: 0 4px;
+    border: 1px solid var(--line-strong);
+    border-radius: 4px;
+    background: var(--paper);
+    color: var(--muted);
+    font: inherit;
+    font-size: 11px;
+    cursor: pointer;
+  }
+  .show-escaped:hover {
+    color: var(--ink);
   }
   .string-toggle {
     display: inline;

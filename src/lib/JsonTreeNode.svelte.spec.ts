@@ -49,16 +49,15 @@ describe("JSON tree", () => {
       syntax: "json",
     });
 
-    const string = document.querySelector("pre.string-line");
-    expect(string?.textContent).toBe('"message": "first\\n\\tsecond"');
+    expect(document.querySelector(".string-toggle")?.textContent).toBe('"first\\n\\tsecond"');
 
     await page.getByRole("button", { name: "Show parsed string at root.message" }).click();
-    expect(string?.textContent).toBe('"message": first\n\tsecond');
-    await expect
-      .element(page.getByRole("button", { name: "Show escaped string at root.message" }))
-      .toHaveAttribute("aria-pressed", "true");
+    const parsed = document.querySelector<HTMLElement>("pre.parsed-value");
+    expect(parsed?.textContent).toBe("first\n\tsecond");
+    parsed?.click();
+    expect(document.querySelector("pre.parsed-value")?.textContent).toBe("first\n\tsecond");
 
     await page.getByRole("button", { name: "Show escaped string at root.message" }).click();
-    expect(string?.textContent).toBe('"message": "first\\n\\tsecond"');
+    expect(document.querySelector(".string-toggle")?.textContent).toBe('"first\\n\\tsecond"');
   });
 });
