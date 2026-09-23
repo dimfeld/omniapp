@@ -59,7 +59,8 @@
     position: relative;
     min-height: 1.6em;
     padding-left: calc(var(--depth) * 2ch + 18px);
-    white-space: pre;
+    overflow-wrap: anywhere;
+    white-space: pre-wrap;
   }
   .toggle {
     position: absolute;

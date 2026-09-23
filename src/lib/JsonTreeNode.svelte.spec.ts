@@ -28,4 +28,18 @@ describe("JSON tree", () => {
     await expect.element(page.getByText("2")).not.toBeInTheDocument();
     await expect.element(page.getByText('"value": 1')).toBeInTheDocument();
   });
+
+  it("wraps a long string within the output width", () => {
+    render(JsonTreeNode, {
+      value: "a".repeat(200),
+      syntax: "json",
+    });
+
+    const line = document.querySelector<HTMLElement>(".line");
+    expect(line).not.toBeNull();
+    line!.style.width = "160px";
+    line!.style.lineHeight = "20px";
+    expect(line!.getBoundingClientRect().height).toBeGreaterThan(20);
+    expect(line!.scrollWidth).toBe(line!.clientWidth);
+  });
 });
