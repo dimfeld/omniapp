@@ -42,4 +42,23 @@ describe("JSON tree", () => {
     expect(line!.getBoundingClientRect().height).toBeGreaterThan(20);
     expect(line!.scrollWidth).toBe(line!.clientWidth);
   });
+
+  it("toggles a string between escaped and parsed text", async () => {
+    render(JsonTreeNode, {
+      value: { message: "first\n\tsecond" },
+      syntax: "json",
+    });
+
+    const string = document.querySelector("pre.string-line");
+    expect(string?.textContent).toBe('"message": "first\\n\\tsecond"');
+
+    await page.getByRole("button", { name: "Show parsed string at root.message" }).click();
+    expect(string?.textContent).toBe('"message": first\n\tsecond');
+    await expect
+      .element(page.getByRole("button", { name: "Show escaped string at root.message" }))
+      .toHaveAttribute("aria-pressed", "true");
+
+    await page.getByRole("button", { name: "Show escaped string at root.message" }).click();
+    expect(string?.textContent).toBe('"message": "first\\n\\tsecond"');
+  });
 });

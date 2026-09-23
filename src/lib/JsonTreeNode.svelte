@@ -19,6 +19,7 @@
   } = $props();
 
   let expanded = $state(true);
+  let stringExpanded = $state(false);
   const container = $derived(value !== null && typeof value === "object");
   const array = $derived(Array.isArray(value));
   const entries = $derived(container ? Object.entries(value as object) : []);
@@ -50,6 +51,14 @@
     {/each}
     <div class="line" style:--depth={depth}>{array ? "]" : "}"}{comma}</div>
   {/if}
+{:else if typeof value === "string"}
+  <pre class="line string-line" style:--depth={depth}>{prefix}<button
+      class="string-toggle"
+      aria-label={`${stringExpanded ? "Show escaped" : "Show parsed"} string at ${label}`}
+      aria-pressed={stringExpanded}
+      onclick={() => (stringExpanded = !stringExpanded)}
+      >{stringExpanded ? value : formatJsonPrimitive(value, syntax)}</button
+    >{comma}</pre>
 {:else}
   <div class="line" style:--depth={depth}>{prefix}{formatJsonPrimitive(value, syntax)}{comma}</div>
 {/if}
@@ -80,5 +89,27 @@
   .toggle:focus-visible {
     outline: 2px solid var(--green);
     outline-offset: -2px;
+  }
+  .string-line {
+    margin: 0;
+    font: inherit;
+  }
+  .string-toggle {
+    display: inline;
+    padding: 0;
+    border: 0;
+    background: transparent;
+    color: inherit;
+    font: inherit;
+    text-align: left;
+    overflow-wrap: anywhere;
+    white-space: pre-wrap;
+    cursor: pointer;
+  }
+  .string-toggle:hover {
+    text-decoration: underline;
+  }
+  .string-toggle:focus-visible {
+    outline: 2px solid var(--green);
   }
 </style>
