@@ -61,7 +61,11 @@ async function accessToken(settings: AmazonConfig, fetchImpl: FetchFunction) {
       scope: "creatorsapi::default",
     }),
   });
-  if (!response.ok) throw new Error(`Amazon authentication failed (${response.status}).`);
+  if (!response.ok) {
+    const message = `Amazon authentication failed (${response.status}).`;
+    console.error(message, await response.text());
+    throw new Error(message);
+  }
   const body = (await response.json()) as { access_token?: string; expires_in?: number };
   if (!body.access_token) throw new Error("Amazon did not return an access token.");
   cachedToken = {
@@ -95,7 +99,11 @@ export async function getAmazonItems(asins: string[], fetchImpl: FetchFunction =
       ],
     }),
   });
-  if (!response.ok) throw new Error(`Amazon price request failed (${response.status}).`);
+  if (!response.ok) {
+    const message = `Amazon price request failed (${response.status}).`;
+    console.error(message, await response.text());
+    throw new Error(message);
+  }
   const body = (await response.json()) as {
     itemResults?: { items?: AmazonItem[] };
     itemsResult?: { items?: AmazonItem[] };
