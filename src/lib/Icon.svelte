@@ -12,6 +12,7 @@
     | "time"
     | "packages"
     | "filament"
+    | "amazon"
     | "copy"
     | "check"
     | "trash"
@@ -44,6 +45,7 @@
     external: "M14 4h6v6m0-6-9 9M18 13v7H4V6h7",
     filament:
       "M8 5.5a5.5 5.5 0 1 1 0 11 5.5 5.5 0 0 1 0-11Zm0 3a2.5 2.5 0 1 1 0 5 2.5 2.5 0 0 1 0-5Zm5.5 2.5H21v6m0 0-2-2m2 2 2-2",
+    amazon: "M4 17c4.5 3.5 11.5 3.5 16 0M17 16l3 1-1 3M7 14V8a3 3 0 0 1 6 0v6m-6-3h6m4-5v8",
     upload: "M12 16V4m0 0L7 9m5-5 5 5M5 15v5h14v-5",
     close: "M6 6l12 12M18 6 6 18",
   };

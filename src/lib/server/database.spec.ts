@@ -39,7 +39,7 @@ describe("database migrations", () => {
       )
       .get();
 
-    expect(migrationCount?.count).toBe(4);
+    expect(migrationCount?.count).toBe(5);
     expect(packageTable?.name).toBe("packages");
     expect(expectedDateColumn?.name).toBe("expected_delivery_date");
     expect(filamentTable?.name).toBe("filament_rolls");

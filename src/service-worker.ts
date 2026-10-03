@@ -62,3 +62,23 @@ worker.addEventListener("fetch", (event) => {
     )
   );
 });
+
+worker.addEventListener("push", (event) => {
+  if (!event.data) return;
+  const alert = event.data.json() as { title: string; body: string; url: string; tag: string };
+  event.waitUntil(
+    worker.registration.showNotification(alert.title, {
+      body: alert.body,
+      tag: alert.tag,
+      icon: `${base}/icon-192.png`,
+      data: { url: alert.url },
+    })
+  );
+});
+
+worker.addEventListener("notificationclick", (event) => {
+  event.notification.close();
+  const url = new URL(`${base}${event.notification.data?.url ?? "/amazon"}`, worker.location.origin)
+    .href;
+  event.waitUntil(worker.clients.openWindow(url));
+});

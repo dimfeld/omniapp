@@ -80,6 +80,29 @@ const migrations: Migration[] = [
       "CREATE INDEX package_tracking_events_time ON package_tracking_events(package_id, occurred_at DESC)",
     ],
   },
+  {
+    version: 5,
+    name: "create_amazon_price_watches",
+    statements: [
+      `CREATE TABLE amazon_watches (
+        id TEXT PRIMARY KEY,
+        asin TEXT NOT NULL UNIQUE,
+        name TEXT NOT NULL,
+        target_cents INTEGER NOT NULL CHECK (target_cents > 0),
+        price_cents INTEGER,
+        currency TEXT NOT NULL DEFAULT 'USD',
+        checked_at INTEGER,
+        error TEXT,
+        alerted INTEGER NOT NULL DEFAULT 0 CHECK (alerted IN (0, 1)),
+        alert_active INTEGER NOT NULL DEFAULT 0 CHECK (alert_active IN (0, 1)),
+        added_at INTEGER NOT NULL
+      )`,
+      `CREATE TABLE push_subscriptions (
+        endpoint TEXT PRIMARY KEY,
+        subscription_json TEXT NOT NULL
+      )`,
+    ],
+  },
 ];
 
 export function migrateDatabase(database: Database, availableMigrations = migrations) {

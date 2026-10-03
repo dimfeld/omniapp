@@ -62,3 +62,25 @@ The production API base is `https://apis.fedex.com`. For FedEx sandbox credentia
 ```sh
 FEDEX_API_BASE_URL=https://apis-sandbox.fedex.com
 ```
+
+## Amazon price watch
+
+The price watch checks Amazon.com products when added and then every two hours. It uses the
+[Amazon Creators API](https://affiliate-program.amazon.com/creatorsapi/docs/en-us/get-started/using-curl).
+Set these server environment variables to enable price checks:
+
+```sh
+AMAZON_CREATORS_CLIENT_ID=...
+AMAZON_CREATORS_CLIENT_SECRET=...
+AMAZON_CREATORS_VERSION=3.1
+AMAZON_PARTNER_TAG=...
+```
+
+Set `AMAZON_CREATORS_VERSION` to the version assigned to your credentials (3.1, 3.2, or 3.3).
+Price targets use USD and Amazon.com offers. The API price can differ from the price a shopper sees.
+
+For browser push notifications, generate a VAPID key pair with `npx web-push generate-vapid-keys`
+and set `WEB_PUSH_PUBLIC_KEY`, `WEB_PUSH_PRIVATE_KEY`, and `WEB_PUSH_SUBJECT` (a `mailto:`
+address or HTTPS URL) on the server. Keep the private key outside source control. Users then
+select **Enable notifications** on the price watch page. The app banner works without push setup.
+The production server must stay running for scheduled checks and push delivery.

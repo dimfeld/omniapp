@@ -2,6 +2,7 @@
   import { page } from "$app/state";
   import { base } from "$app/paths";
   import Icon, { type IconName } from "$lib/Icon.svelte";
+  import { onMount } from "svelte";
   import "./layout.css";
 
   let { children } = $props();
@@ -9,6 +10,7 @@
   const tools: { id: IconName; label: string; path: string }[] = [
     { id: "packages", label: "Packages", path: "/packages" },
     { id: "filament", label: "Filament", path: "/filament" },
+    { id: "amazon", label: "Price watch", path: "/amazon" },
     { id: "json", label: "JSON", path: "/json" },
     { id: "base64", label: "Base64", path: "/base64" },
     { id: "regex", label: "Regex", path: "/regex" },
@@ -22,6 +24,36 @@
   const mobilePrimary = tools.slice(0, 2);
   const mobileSecondary = tools.slice(2);
   const defaultTool = tools.find((tool) => tool.id === "json") ?? tools[0];
+  type PriceAlert = { id: string; name: string; priceCents: number; asin: string };
+  let priceAlerts = $state<PriceAlert[]>([]);
+
+  async function loadPriceAlerts() {
+    try {
+      const response = await fetch(`${base}/api/amazon/alerts`);
+      if (response.ok) priceAlerts = (await response.json()) as PriceAlert[];
+    } catch {
+      /* Keep the last known alerts until the next check. */
+    }
+  }
+
+  async function dismissPriceAlert(id: string) {
+    const response = await fetch(`${base}/api/amazon/${encodeURIComponent(id)}`, {
+      method: "PATCH",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ dismiss: true }),
+    });
+    if (response.ok) priceAlerts = priceAlerts.filter((alert) => alert.id !== id);
+  }
+
+  onMount(() => {
+    void loadPriceAlerts();
+    const timer = window.setInterval(() => void loadPriceAlerts(), 60_000);
+    window.addEventListener("amazon-alerts-changed", loadPriceAlerts);
+    return () => {
+      window.clearInterval(timer);
+      window.removeEventListener("amazon-alerts-changed", loadPriceAlerts);
+    };
+  });
 
   const activeTool = $derived(
     tools.find((tool) => page.url.pathname === `${base}${tool.path}`) ?? defaultTool
@@ -104,6 +136,28 @@
   </nav>
 
   <main>
+    {#if priceAlerts.length}
+      <div class="price-alerts" aria-label="Amazon price alerts">
+        {#each priceAlerts as alert (alert.id)}
+          <div class="price-alert" role="status">
+            <span
+              ><strong>{alert.name}</strong> is now ${(alert.priceCents / 100).toFixed(2)} on Amazon,
+              below your target.</span
+            >
+            <a
+              href={`https://www.amazon.com/dp/${alert.asin}`}
+              target="_blank"
+              rel="noopener noreferrer">View</a
+            >
+            <button
+              type="button"
+              onclick={() => dismissPriceAlert(alert.id)}
+              aria-label={`Dismiss price alert for ${alert.name}`}><Icon name="close" /></button
+            >
+          </div>
+        {/each}
+      </div>
+    {/if}
     <h1>{activeTool.label}</h1>
     {@render children()}
   </main>
