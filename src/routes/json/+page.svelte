@@ -1,7 +1,10 @@
 <script lang="ts">
   import Icon from "$lib/Icon.svelte";
   import JsonTreeNode from "$lib/JsonTreeNode.svelte";
+  import { decodeDevalue, encodeDevalue, formatValue } from "$lib/devalue";
   import { formatJsonValue, parseJson, type OutputSyntax } from "$lib/json";
+
+  type Mode = "json" | "devalue-decode" | "devalue-encode";
 
   let input = $state("");
   let output = $state("");
@@ -10,19 +13,53 @@
   let format = $state<"pretty" | "minified">("pretty");
   let copied = $state(false);
   let syntax = $state<OutputSyntax>("json");
+  let mode = $state<Mode>("json");
+  let base64Output = $state(false);
+  let decodedBase64 = $state(false);
 
-  function formatJson(minified = format === "minified", live = false) {
-    format = minified ? "minified" : "pretty";
+  const placeholders: Record<Mode, string> = {
+    json: "Paste JSON or a JavaScript object…",
+    "devalue-decode": "Paste a devalue string or Base64-encoded devalue…",
+    "devalue-encode": "Type a JavaScript expression, for example new Map([['a', 1n]])…",
+  };
+  const helpText: Record<Mode, string> = {
+    json: "Accepts comments, single quotes, unquoted keys, and trailing commas. Code expressions are not supported.",
+    "devalue-decode":
+      "Base64 and URL-safe Base64 input is decoded automatically. Custom types show as Type(value).",
+    "devalue-encode":
+      "The input is evaluated as a JavaScript expression, so values such as Date, Map, Set, and BigInt are supported.",
+  };
+
+  function run(live = false) {
     error = "";
+    decodedBase64 = false;
     try {
-      value = input.trim() ? parseJson(input) : undefined;
-      output = value === undefined ? "" : formatJsonValue(value, syntax, minified);
+      if (!input.trim()) {
+        value = undefined;
+        output = "";
+      } else if (mode === "json") {
+        value = parseJson(input);
+        output = formatJsonValue(value, syntax, format === "minified");
+      } else if (mode === "devalue-decode") {
+        const result = decodeDevalue(input);
+        value = result.value;
+        decodedBase64 = result.base64;
+        output = formatValue(value);
+      } else {
+        value = undefined;
+        output = encodeDevalue(input, base64Output);
+      }
     } catch (cause) {
       if (live) return;
       output = "";
       value = undefined;
       error = cause instanceof Error ? cause.message : "The input is not valid.";
     }
+  }
+
+  function formatJson(minified: boolean) {
+    format = minified ? "minified" : "pretty";
+    run();
   }
 
   async function copyOutput() {
@@ -36,15 +73,30 @@
 <section class="panel">
   <div class="toolbar">
     <div class="actions">
-      <button class="primary" onclick={() => formatJson(false)}>Prettify</button>
-      <button onclick={() => formatJson(true)}>Minify</button>
       <label class="syntax">
-        Output
-        <select bind:value={syntax} onchange={() => formatJson()}>
+        Mode
+        <select bind:value={mode} onchange={() => run()}>
           <option value="json">JSON</option>
-          <option value="javascript">JavaScript</option>
+          <option value="devalue-decode">Devalue decode</option>
+          <option value="devalue-encode">Devalue encode</option>
         </select>
       </label>
+      {#if mode === "json"}
+        <button class="primary" onclick={() => formatJson(false)}>Prettify</button>
+        <button onclick={() => formatJson(true)}>Minify</button>
+        <label class="syntax">
+          Output
+          <select bind:value={syntax} onchange={() => run()}>
+            <option value="json">JSON</option>
+            <option value="javascript">JavaScript</option>
+          </select>
+        </label>
+      {:else if mode === "devalue-encode"}
+        <label class="syntax">
+          <input type="checkbox" bind:checked={base64Output} onchange={() => run()} />
+          Base64 output
+        </label>
+      {/if}
     </div>
     <button
       class="ghost"
@@ -61,26 +113,25 @@
       <span class="pane-label">Input<em>{input.length} chars</em></span>
       <textarea
         bind:value={input}
-        oninput={() => formatJson(format === "minified", true)}
+        oninput={() => run(true)}
         spellcheck="false"
-        placeholder="Paste JSON or a JavaScript object…"></textarea>
-      <p class="input-help">
-        Accepts comments, single quotes, unquoted keys, and trailing commas. Code expressions are
-        not supported.
-      </p>
+        placeholder={placeholders[mode]}></textarea>
+      <p class="input-help">{helpText[mode]}</p>
     </label>
     <div class="pane output">
       <span class="pane-label"
-        >Output<button onclick={copyOutput} disabled={!output}
+        >Output{#if decodedBase64}<em class="note">Decoded from Base64</em>{/if}<button
+          onclick={copyOutput}
+          disabled={!output}
           ><Icon name={copied ? "check" : "copy"} />{copied ? "Copied" : "Copy"}</button
         ></span
       >
       {#if error}
         <p class="error">{error}</p>
-      {:else if format === "pretty" && output}
+      {:else if mode !== "devalue-encode" && (mode !== "json" || format === "pretty") && output}
         <div class="tree" aria-label="Formatted JSON tree">
           {#key value}
-            <JsonTreeNode {value} {syntax} />
+            <JsonTreeNode {value} syntax={mode === "json" ? syntax : "javascript"} />
           {/key}
         </div>
       {:else}
@@ -188,6 +239,10 @@
   .pane-label em {
     color: var(--faint);
     font-style: normal;
+  }
+  .pane-label .note {
+    margin-left: 8px;
+    margin-right: auto;
   }
   .pane-label button {
     padding: 4px 0 4px 8px;

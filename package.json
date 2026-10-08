@@ -17,6 +17,7 @@
   },
   "dependencies": {
     "culori": "^4.0.2",
+    "devalue": "^6.0.2",
     "html-entities": "^2.6.0",
     "json5": "^2.2.3",
     "uuid": "^14.0.2",

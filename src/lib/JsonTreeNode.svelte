@@ -1,29 +1,95 @@
 <script lang="ts">
   import JsonTreeNode from "$lib/JsonTreeNode.svelte";
+  import { CustomValue, formatValue } from "$lib/devalue";
   import { formatJsonKey, formatJsonPrimitive, type OutputSyntax } from "$lib/json";
+
+  type Child = { key: string; prefix?: string; value: unknown; label: string };
+  type Container = { open: string; close: string; noun: string; children: Child[] };
 
   let {
     value,
     syntax,
     depth = 0,
     name,
+    prefix: customPrefix,
     label = "root",
     last = true,
+    ancestors = [],
   }: {
     value: unknown;
     syntax: OutputSyntax;
     depth?: number;
     name?: string;
+    /** Text shown before the value instead of the formatted `name`. */
+    prefix?: string;
     label?: string;
     last?: boolean;
+    /** Objects that contain this value, used to detect cycles. */
+    ancestors?: object[];
   } = $props();
 
   let expanded = $state(true);
   let stringExpanded = $state(false);
-  const container = $derived(value !== null && typeof value === "object");
-  const array = $derived(Array.isArray(value));
-  const entries = $derived(container ? Object.entries(value as object) : []);
-  const prefix = $derived(name === undefined ? "" : `${formatJsonKey(name, syntax)}: `);
+
+  function describe(): Container | undefined {
+    if (value === null || typeof value !== "object" || ancestors.includes(value)) return undefined;
+    if (Array.isArray(value)) {
+      const children = Object.entries(value).map(([key, item]) => ({
+        key,
+        value: item,
+        label: `${label}[${key}]`,
+      }));
+      return { open: "[", close: "]", noun: "array", children };
+    }
+    if (value instanceof Map) {
+      const children = [...value].map(([key, item], index) => ({
+        key: String(index),
+        prefix: `${formatValue(key)} => `,
+        value: item,
+        label: `${label}.get(${formatValue(key)})`,
+      }));
+      return { open: `Map(${value.size}) {`, close: "}", noun: "map", children };
+    }
+    if (value instanceof Set) {
+      const children = [...value].map((item, index) => ({
+        key: String(index),
+        value: item,
+        label: `${label}[${index}]`,
+      }));
+      return { open: `Set(${value.size}) [`, close: "]", noun: "set", children };
+    }
+    if (value instanceof CustomValue) {
+      if (value.value === null || typeof value.value !== "object") return undefined;
+      const children = [{ key: "value", value: value.value, label: `${label}.value` }];
+      return { open: `${value.type}(`, close: ")", noun: value.type, children };
+    }
+    const proto = Object.getPrototypeOf(value);
+    if (proto !== Object.prototype && proto !== null) return undefined;
+    const children = Object.entries(value).map(([key, item]) => ({
+      key,
+      prefix: `${formatJsonKey(key, syntax)}: `,
+      value: item,
+      label: `${label}.${key}`,
+    }));
+    return { open: "{", close: "}", noun: "object", children };
+  }
+
+  function formatLeaf() {
+    if (value !== null && typeof value === "object" && ancestors.includes(value)) {
+      return "[Circular]";
+    }
+    if (value === null || typeof value === "boolean") return formatJsonPrimitive(value, syntax);
+    if (typeof value === "number" && Number.isFinite(value) && !Object.is(value, -0)) {
+      return formatJsonPrimitive(value, syntax);
+    }
+    return formatValue(value);
+  }
+
+  const container = $derived(describe());
+  const childAncestors = $derived(container ? [...ancestors, value as object] : ancestors);
+  const prefix = $derived(
+    customPrefix ?? (name === undefined ? "" : `${formatJsonKey(name, syntax)}: `)
+  );
   const comma = $derived(depth > 0 && (syntax === "javascript" || !last) ? "," : "");
 </script>
 
@@ -31,25 +97,26 @@
   <div class="line" style:--depth={depth}>
     <button
       class="toggle"
-      aria-label={`${expanded ? "Collapse" : "Expand"} ${array ? "array" : "object"} at ${label}`}
+      aria-label={`${expanded ? "Collapse" : "Expand"} ${container.noun} at ${label}`}
       aria-expanded={expanded}
       onclick={() => (expanded = !expanded)}>{expanded ? "▾" : "▸"}</button
-    >{prefix}{array ? "[" : "{"}{expanded ? "" : "…"}{expanded ? "" : array ? "]" : "}"}{expanded
+    >{prefix}{container.open}{expanded ? "" : "…"}{expanded ? "" : container.close}{expanded
       ? ""
       : comma}
   </div>
   {#if expanded}
-    {#each entries as [key, item], index (key)}
+    {#each container.children as child, index (child.key)}
       <JsonTreeNode
-        value={item}
+        value={child.value}
         {syntax}
         depth={depth + 1}
-        name={array ? undefined : key}
-        label={array ? `${label}[${index}]` : `${label}.${key}`}
-        last={index === entries.length - 1}
+        prefix={child.prefix ?? ""}
+        label={child.label}
+        last={index === container.children.length - 1}
+        ancestors={childAncestors}
       />
     {/each}
-    <div class="line" style:--depth={depth}>{array ? "]" : "}"}{comma}</div>
+    <div class="line" style:--depth={depth}>{container.close}{comma}</div>
   {/if}
 {:else if typeof value === "string"}
   {#if stringExpanded}
@@ -74,7 +141,7 @@
     </div>
   {/if}
 {:else}
-  <div class="line" style:--depth={depth}>{prefix}{formatJsonPrimitive(value, syntax)}{comma}</div>
+  <div class="line" style:--depth={depth}>{prefix}{formatLeaf()}{comma}</div>
 {/if}
 
 <style>

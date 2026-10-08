@@ -60,4 +60,26 @@ describe("JSON tree", () => {
     await page.getByRole("button", { name: "Show escaped string at root.message" }).click();
     expect(document.querySelector(".string-toggle")?.textContent).toBe('"first\\n\\tsecond"');
   });
+
+  it("renders devalue types such as Map, Set, Date, BigInt, and cycles", async () => {
+    const value: Record<string, unknown> = {
+      map: new Map([["a", 1n]]),
+      set: new Set([undefined]),
+      date: new Date(0),
+    };
+    value.self = value;
+    render(JsonTreeNode, { value, syntax: "javascript" });
+
+    await expect.element(page.getByText("map: Map(1) {")).toBeInTheDocument();
+    await expect.element(page.getByText('"a" => 1n,')).toBeInTheDocument();
+    await expect.element(page.getByText("set: Set(1) [")).toBeInTheDocument();
+    await expect.element(page.getByText("undefined,")).toBeInTheDocument();
+    await expect
+      .element(page.getByText('date: new Date("1970-01-01T00:00:00.000Z"),'))
+      .toBeInTheDocument();
+    await expect.element(page.getByText("self: [Circular],")).toBeInTheDocument();
+
+    await page.getByRole("button", { name: "Collapse map at root.map" }).click();
+    await expect.element(page.getByText('"a" => 1n,')).not.toBeInTheDocument();
+  });
 });
