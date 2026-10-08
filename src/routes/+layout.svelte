@@ -10,7 +10,6 @@
   const tools: { id: IconName; label: string; path: string }[] = [
     { id: "packages", label: "Packages", path: "/packages" },
     { id: "filament", label: "Filament", path: "/filament" },
-    { id: "amazon", label: "Price watch", path: "/amazon" },
     { id: "json", label: "JSON", path: "/json" },
     { id: "base64", label: "Base64", path: "/base64" },
     { id: "regex", label: "Regex", path: "/regex" },
@@ -24,6 +23,8 @@
   const mobilePrimary = tools.slice(0, 2);
   const mobileSecondary = tools.slice(2);
   const defaultTool = tools.find((tool) => tool.id === "json") ?? tools[0];
+  // Pages that are reachable by URL but not shown in the nav.
+  const hiddenTools: typeof tools = [{ id: "amazon", label: "Price watch", path: "/amazon" }];
   type PriceAlert = { id: string; name: string; priceCents: number; asin: string };
   let priceAlerts = $state<PriceAlert[]>([]);
 
@@ -56,7 +57,8 @@
   });
 
   const activeTool = $derived(
-    tools.find((tool) => page.url.pathname === `${base}${tool.path}`) ?? defaultTool
+    [...tools, ...hiddenTools].find((tool) => page.url.pathname === `${base}${tool.path}`) ??
+      defaultTool
   );
 
   function selectToolByShortcut(event: KeyboardEvent) {
