@@ -17,6 +17,11 @@
   let base64Output = $state(false);
   let decodedBase64 = $state(false);
 
+  const modes: { id: Mode; label: string }[] = [
+    { id: "json", label: "JSON" },
+    { id: "devalue-decode", label: "Devalue decode" },
+    { id: "devalue-encode", label: "Devalue encode" },
+  ];
   const placeholders: Record<Mode, string> = {
     json: "Paste JSON or a JavaScript object…",
     "devalue-decode": "Paste a devalue string or Base64-encoded devalue…",
@@ -57,6 +62,11 @@
     }
   }
 
+  function selectMode(next: Mode) {
+    mode = next;
+    run();
+  }
+
   function formatJson(minified: boolean) {
     format = minified ? "minified" : "pretty";
     run();
@@ -72,41 +82,49 @@
 
 <section class="panel">
   <div class="toolbar">
-    <div class="actions">
-      <label class="syntax">
-        Mode
-        <select bind:value={mode} onchange={() => run()}>
-          <option value="json">JSON</option>
-          <option value="devalue-decode">Devalue decode</option>
-          <option value="devalue-encode">Devalue encode</option>
-        </select>
-      </label>
-      {#if mode === "json"}
-        <button class="primary" onclick={() => formatJson(false)}>Prettify</button>
-        <button onclick={() => formatJson(true)}>Minify</button>
-        <label class="syntax">
-          Output
-          <select bind:value={syntax} onchange={() => run()}>
-            <option value="json">JSON</option>
-            <option value="javascript">JavaScript</option>
-          </select>
-        </label>
-      {:else if mode === "devalue-encode"}
-        <label class="syntax">
-          <input type="checkbox" bind:checked={base64Output} onchange={() => run()} />
-          Base64 output
-        </label>
-      {/if}
+    <div class="mode-row">
+      <div class="modes" role="tablist" aria-label="Mode">
+        {#each modes as option}
+          <button
+            class:active={mode === option.id}
+            type="button"
+            role="tab"
+            aria-selected={mode === option.id}
+            onclick={() => selectMode(option.id)}>{option.label}</button
+          >
+        {/each}
+      </div>
+      <button
+        class="ghost"
+        onclick={() => {
+          input = "";
+          output = "";
+          value = undefined;
+          error = "";
+          decodedBase64 = false;
+        }}>Clear</button
+      >
     </div>
-    <button
-      class="ghost"
-      onclick={() => {
-        input = "";
-        output = "";
-        value = undefined;
-        error = "";
-      }}>Clear</button
-    >
+    {#if mode !== "devalue-decode"}
+      <div class="actions">
+        {#if mode === "json"}
+          <button class="primary" onclick={() => formatJson(false)}>Prettify</button>
+          <button onclick={() => formatJson(true)}>Minify</button>
+          <label class="syntax">
+            Output
+            <select bind:value={syntax} onchange={() => run()}>
+              <option value="json">JSON</option>
+              <option value="javascript">JavaScript</option>
+            </select>
+          </label>
+        {:else}
+          <label class="syntax">
+            <input type="checkbox" bind:checked={base64Output} onchange={() => run()} />
+            Base64 output
+          </label>
+        {/if}
+      </div>
+    {/if}
   </div>
   <div class="split">
     <label class="pane">
@@ -148,11 +166,39 @@
     border-radius: var(--radius);
     background: var(--paper);
   }
-  .toolbar {
-    padding: 10px 12px;
+  .mode-row {
     display: flex;
     align-items: center;
     justify-content: space-between;
+    gap: 12px;
+  }
+  .modes {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+  .modes button {
+    height: 30px;
+    padding: 0 12px;
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    background: #f7f6f0;
+    color: var(--muted);
+    font-size: 13px;
+    font-weight: 500;
+  }
+  .modes button:hover {
+    border-color: var(--line-strong);
+  }
+  .modes button.active {
+    border-color: var(--green);
+    background: var(--green-soft);
+    color: var(--green);
+  }
+  .toolbar {
+    padding: 10px 12px;
+    display: grid;
+    gap: 10px;
     border-bottom: 1px solid var(--line);
   }
   .actions {
